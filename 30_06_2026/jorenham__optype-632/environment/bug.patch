@@ -1,0 +1,417 @@
+diff --git a/docs/reference/experimental/infer.md b/docs/reference/experimental/infer.md
+index 4219bec..e9c2111 100644
+--- a/docs/reference/experimental/infer.md
++++ b/docs/reference/experimental/infer.md
+@@ -111,37 +111,6 @@ $ optype infer "async def f(xs): return (x async for x in xs)"
+ [R](xs: CanAIter[CanANext[CanAwait[R]]]) -> AsyncGenerator[R]
+ ```
+ 
+-## Unions
+-
+-A union member that is a subtype of another member is absorbed into it, following the
+-runtime subclass relations, such as `bool <: int` and `FileNotFoundError <: OSError`:
+-
+-```console
+-$ optype infer "def f(): yield True; yield 1"
+-() -> Generator[int]
+-
+-$ optype infer "def f(): yield FileNotFoundError(); yield OSError()"
+-() -> Generator[OSError]
+-```
+-
+-PEP 484's `int <: float <: complex` numeric tower is a static-typing fiction with no
+-runtime counterpart, so it is not applied:
+-
+-```console
+-$ optype infer "lambda x: (x + 1, x + 1.0)"
+-[R](x: CanAdd[Literal[1] | float, R]) -> tuple[R, R]
+-```
+-
+-Variance is respected: a covariant `tuple` simplifies, but an invariant `list` does not:
+-
+-```console
+-$ optype infer "lambda x: (OSError(), 'a') if x else (FileNotFoundError(), 'a')"
+-(x: CanBool) -> tuple[OSError, Literal['a']]
+-
+-$ optype infer "lambda x: [FileNotFoundError()] if x else [OSError()]"
+-(x: CanBool) -> list[FileNotFoundError] | list[OSError]
+-```
+-
+ ## NumPy
+ 
+ !!! info
+diff --git a/optype/infer/__init__.py b/optype/infer/__init__.py
+index bc63cbd..81a2656 100644
+--- a/optype/infer/__init__.py
++++ b/optype/infer/__init__.py
+@@ -310,10 +310,14 @@ class _Renderer:
+                 literals.append(value)
+             else:
+                 parts.append(self.return_type(value))
++        if _ir.Name("float") in parts or _ir.Name("complex") in parts:
++            literals = [value for value in literals if not isinstance(value, int)]
++        if _ir.Name("complex") in parts:
++            parts = [part for part in parts if part != _ir.Name("float")]
+ 
+         nodes: list[_ir.Node] = []
+         if literals:
+-            nodes.append(_ir.Lit(tuple(literals)))
++            nodes.append(_ir.Lit(tuple(dict.fromkeys(literals))))
+         nodes.extend(dict.fromkeys(parts))
+         return _ir.union(nodes)
+ 
+@@ -381,9 +385,9 @@ class _Renderer:
+             case _SpyObject():
+                 return _ir.Name(self._vars.get(id(result), _OBJECT))
+             case _SpyStr():
+-                return _ir.Type(str)
++                return _ir.Name("str")
+             case _SpyBytes():
+-                return _ir.Type(bytes)
++                return _ir.Name("bytes")
+             case _Gen():
+                 yields = list(dict.fromkeys(map(self.return_type, result.yielded)))
+                 inner = _ir.union(yields) or _ir.Name(_NEVER)
+@@ -411,11 +415,11 @@ class _Renderer:
+                 elems = (self.union((item,)) or _ir.Name(_NEVER) for item in items)
+                 return _ir.App("tuple", tuple(elems))
+             case _:
+-                return _ir.Type(cls)
++                return _ir.Name(_numpy.type_name(cls))
+ 
+     def return_types(self) -> str:
+-        node = _ir.union(dict.fromkeys(map(self.return_type, self._results)))
+-        return _ir.render(node) if node is not None else _NEVER
++        nodes = dict.fromkeys(map(self.return_type, self._results))
++        return " | ".join(map(_ir.render, nodes))
+ 
+     def render(self) -> str:
+         typevars = [self.typevar(spy) for spy in self._pool + self._result_spies]
+@@ -564,7 +568,7 @@ def infer(func: _AnyFunc, /, *params: str | int) -> str:
+         InferError: If `func` is not supported, such as a non-callable, variadic
+             parameters, or an operation without a matching protocol.
+     """
+-    if nin := _numpy.ufunc_nin(func):
++    if (nin := _numpy.ufunc_nin(func)) is not None:
+         names = _numpy.ufunc_params(nin)
+         return _numpy.infer_ufunc(func, names, _select(params, names))
+ 
+diff --git a/optype/infer/_ir.py b/optype/infer/_ir.py
+index a6c8c9a..34013d3 100644
+--- a/optype/infer/_ir.py
++++ b/optype/infer/_ir.py
+@@ -2,49 +2,20 @@
+ 
+ from collections.abc import Iterable
+ from dataclasses import dataclass
+-from typing import override
+ 
+-type Node = Lit | Type | Name | App | Union | Inter
++type Node = Lit | Name | App | Union | Inter
+ 
+-# variance per type argument ("+" co, "-" contra); the last entry repeats variadically
+-_VARIANCES = {
+-    "AsyncGenerator": "+-",
+-    "Generator": "+-+",
+-    "frozenset": "+",
+-    "tuple": "+",
+-}
+ 
+-
+-def _keys(values: Iterable[object]) -> tuple[tuple[type, object], ...]:
+-    """Type-sensitive: `True == 1`, but `Literal[True]` is not `Literal[1]`."""
+-    return tuple((type(value), value) for value in values)
+-
+-
+-@dataclass(frozen=True, slots=True, eq=False)
++@dataclass(frozen=True, slots=True)
+ class Lit:
+     """A `Literal[...]` type of one or more literal values."""
+ 
+     values: tuple[object, ...]
+ 
+-    @override
+-    def __eq__(self, other: object) -> bool:
+-        return isinstance(other, Lit) and _keys(self.values) == _keys(other.values)
+-
+-    @override
+-    def __hash__(self) -> int:
+-        return hash(_keys(self.values))
+-
+-
+-@dataclass(frozen=True, slots=True)
+-class Type:
+-    """A concrete runtime type, e.g. `int` or `np.float64`."""
+-
+-    cls: type
+-
+ 
+ @dataclass(frozen=True, slots=True)
+ class Name:
+-    """An opaque type expression, e.g. a typevar, a protocol, or `None`."""
++    """An opaque type expression, e.g. `int`, a typevar, or `dict[str, int]`."""
+ 
+     name: str
+ 
+@@ -79,63 +50,8 @@ class Inter:
+     parts: tuple[Node, ...]
+ 
+ 
+-def subtype(sub: Node | Arg, sup: Node | Arg) -> bool:
+-    """Whether `sub` is assignable to `sup`, as far as can be told from the nodes."""
+-    if sub == sup or sub == Name("Never") or sup in {Name("object"), Type(object)}:
+-        return True
+-    match sub, sup:
+-        case Union(parts), _:
+-            result = all(subtype(part, sup) for part in parts)
+-        case _, Union(parts):
+-            result = any(subtype(sub, part) for part in parts)
+-        case Lit(values), Lit(wider):
+-            result = set(_keys(values)) <= set(_keys(wider))
+-        case Lit(values), Type(cls):
+-            result = all(isinstance(value, cls) for value in values)
+-        case Type(cls), Type(wider):
+-            result = issubclass(cls, wider)
+-        case App(base, args), App(wider, wider_args) if base == wider:
+-            variances = _VARIANCES.get(base, "")
+-            result = (
+-                bool(variances)
+-                and len(args) == len(wider_args)
+-                and all(
+-                    subtype(arg, wide)
+-                    if variances[min(i, len(variances) - 1)] == "+"
+-                    else subtype(wide, arg)
+-                    for i, (arg, wide) in enumerate(zip(args, wider_args, strict=True))
+-                )
+-            )
+-        case _:
+-            result = False
+-    return result
+-
+-
+-def _absorb(nodes: list[Node]) -> list[Node]:
+-    """Drop the union members (and literal values) that another member covers."""
+-    atoms: list[Node] = []
+-    for node in nodes:
+-        if isinstance(node, Lit):
+-            atoms += (Lit((value,)) for value in node.values)
+-        else:
+-            atoms.append(node)
+-
+-    kept: list[Node] = []
+-    for atom in atoms:
+-        if not any(subtype(atom, wide) for wide in kept):
+-            kept = [*(k for k in kept if not subtype(k, atom)), atom]
+-
+-    merged: list[Node] = []
+-    for node in kept:
+-        if isinstance(node, Lit) and merged and isinstance(last := merged[-1], Lit):
+-            merged[-1] = Lit(last.values + node.values)
+-        else:
+-            merged.append(node)
+-    return merged
+-
+-
+ def union(parts: Iterable[Node]) -> Node | None:
+-    """The simplified flat union of `parts`, unwrapped if singular, or `None`."""
++    """The flat union of `parts`, unwrapped if singular, or `None` if empty."""
+     flat: dict[Node, None] = {}
+     for part in parts:
+         if isinstance(part, Union):
+@@ -144,8 +60,7 @@ def union(parts: Iterable[Node]) -> Node | None:
+             flat[part] = None
+     if not flat:
+         return None
+-    nodes = _absorb(list(flat))
+-    return nodes[0] if len(nodes) == 1 else Union(tuple(nodes))
++    return next(iter(flat)) if len(flat) == 1 else Union(tuple(flat))
+ 
+ 
+ def inter(parts: Iterable[Node]) -> Node | None:
+@@ -166,19 +81,18 @@ def render(node: Node) -> str:
+     match node:
+         case Lit(values):
+             return f"Literal[{', '.join(map(repr, values))}]"
+-        case Type(cls):
+-            prefix = "np." if cls.__module__.partition(".")[0] == "numpy" else ""
+-            return prefix + cls.__name__
+         case Name(name):
+             return name
+         case App(base, args):
++            if not args:
++                return base
+             parts = [
+                 f"{arg.key}={render(arg.value)}"
+                 if isinstance(arg, Arg)
+                 else render(arg)
+                 for arg in args
+             ]
+-            return f"{base}[{', '.join(parts)}]" if parts else base
++            return f"{base}[{', '.join(parts)}]"
+         case Union(parts):
+             return " | ".join(
+                 f"({render(part)})" if isinstance(part, Inter) else render(part)
+diff --git a/optype/infer/_numpy.py b/optype/infer/_numpy.py
+index 6521a57..32d67b0 100644
+--- a/optype/infer/_numpy.py
++++ b/optype/infer/_numpy.py
+@@ -54,7 +54,7 @@ def infer_ufunc(func: _AnyFunc, names: Sequence[str], selected: Iterable[str]) -
+     for name in selected:
+         i = names.index(name)
+         arms: list[str] = ["CanArrayUFunc[np.ufunc, R]"] if i == 0 else []
+-        if dtype := _ufunc_dtype(func, i):
++        if (dtype := _ufunc_dtype(func, i)) is not None:
+             arms.append(dtype)
+         parts.append(f"{name}: {' | '.join(arms) or 'object'}")
+     return f"[R]({', '.join(parts)}) -> R"
+@@ -78,3 +78,9 @@ def array_function_type(func: _AnyFunc, ret: str) -> str:
+     n = _required_args(func)
+     args = ["Any"] * n if n is not None else ["..."]
+     return f"CanArrayFunction[CanCall[{', '.join([*args, ret])}], {ret}]"
++
++
++def type_name(tp: type) -> str:
++    """The type's name, with the conventional `np.` prefix for numpy types."""
++    name = tp.__name__
++    return f"np.{name}" if tp.__module__.partition(".")[0] == "numpy" else name
+diff --git a/tests/test_infer.py b/tests/test_infer.py
+index 162263f..9ef8b84 100644
+--- a/tests/test_infer.py
++++ b/tests/test_infer.py
+@@ -10,7 +10,6 @@ from typing import Any
+ import pytest
+ 
+ from optype.infer import InferError, InferWarning, _doc_params, infer
+-from optype.infer._ir import App, Lit, Name, Type, subtype
+ 
+ UNARY_CASES: list[tuple[Callable[[Any], Any], str]] = [
+     (lambda x: x + 1, "[R](x: CanAdd[Literal[1], R]) -> R"),
+@@ -96,16 +95,6 @@ UNARY_CASES: list[tuple[Callable[[Any], Any], str]] = [
+         "[R](x: CanLen & CanGetitem[Literal[0], R]) -> R | str",
+     ),
+     (lambda x: len(x) + int(x), "(x: CanLen & (CanInt | CanIndex)) -> int"),
+-    (lambda x: True if x else 1, "(x: CanBool) -> int"),
+-    (lambda x: 1 if x else 1.5, "(x: CanBool) -> int | float"),
+-    (
+-        lambda x: (OSError(), "a") if x else (FileNotFoundError(), "a"),
+-        "(x: CanBool) -> tuple[OSError, Literal['a']]",
+-    ),
+-    (
+-        lambda x: [FileNotFoundError()] if x else [OSError()],  # list is invariant
+-        "(x: CanBool) -> list[FileNotFoundError] | list[OSError]",
+-    ),
+     (
+         lambda x: x[0] if len(x) else (-x if int(x) else None),
+         (
+@@ -139,30 +128,12 @@ UNARY_CASES: list[tuple[Callable[[Any], Any], str]] = [
+         lambda x: (x + 1, x + 2, x + 3),
+         "[R](x: CanAdd[Literal[1, 2, 3], R]) -> tuple[R, R, R]",
+     ),
+-    # PEP 484's numeric tower is a static-typing fiction, so `int` is no `float`
+-    (
+-        lambda x: (x + 1, x + 1.0),
+-        "[R](x: CanAdd[Literal[1] | float, R]) -> tuple[R, R]",
+-    ),
+-    (
+-        lambda x: (x + 1, x + 1j),
+-        "[R](x: CanAdd[Literal[1] | complex, R]) -> tuple[R, R]",
+-    ),
+-    (
+-        lambda x: (x + 1.0, x + 1j),
+-        "[R](x: CanAdd[float | complex, R]) -> tuple[R, R]",
+-    ),
++    (lambda x: (x + 1, x + 1.0), "[R](x: CanAdd[float, R]) -> tuple[R, R]"),
++    (lambda x: (x + 1, x + 1j), "[R](x: CanAdd[complex, R]) -> tuple[R, R]"),
++    (lambda x: (x + 1.0, x + 1j), "[R](x: CanAdd[complex, R]) -> tuple[R, R]"),
+     (
+         lambda x: (x + 1, x + 1.0, x + "a"),
+-        "[R](x: CanAdd[Literal[1, 'a'] | float, R]) -> tuple[R, R, R]",
+-    ),
+-    (
+-        lambda x: (x[True], x[1.5]),
+-        "[R](x: CanGetitem[Literal[True] | float, R]) -> tuple[R, R]",
+-    ),
+-    (
+-        lambda x: (x[True], x[1]),  # Literal[True] is not Literal[1]
+-        "[R](x: CanGetitem[Literal[True, 1], R]) -> tuple[R, R]",
++        "[R](x: CanAdd[Literal['a'] | float, R]) -> tuple[R, R, R]",
+     ),
+     (lambda x: (x[1.0], x[None]), "[R](x: CanGetitem[float | None, R]) -> tuple[R, R]"),
+     (lambda x: (-x, -x), "[R](x: CanNeg[R]) -> tuple[R, R]"),
+@@ -317,45 +288,6 @@ def test_stringify(func: Callable[[Any], Any], expected: str) -> None:
+     assert infer(func) == expected
+ 
+ 
+-SUBTYPE_CASES: list[tuple[Any, Any, bool]] = [
+-    (Type(bool), Type(int), True),
+-    (Type(int), Type(bool), False),
+-    (Type(int), Type(float), False),  # PEP 484's numeric tower is not real
+-    (Type(FileNotFoundError), Type(OSError), True),
+-    (Type(OSError), Type(FileNotFoundError), False),
+-    (Name("Never"), Type(str), True),
+-    (Type(str), Name("object"), True),
+-    (Type(str), Type(object), True),
+-    (Lit((True, 1)), Type(int), True),
+-    (Lit((1, "a")), Type(int), False),
+-    (Lit((1,)), Lit((1, 2)), True),
+-    (Lit((True,)), Lit((1,)), False),  # Literal[True] is not Literal[1]
+-    # the yield type is covariant
+-    (App("Generator", (Type(bool),)), App("Generator", (Type(int),)), True),
+-    (App("Generator", (Type(int),)), App("Generator", (Type(bool),)), False),
+-    # the send type is contravariant
+-    (
+-        App("Generator", (Type(int), Type(int), Type(int))),
+-        App("Generator", (Type(int), Type(bool), Type(int))),
+-        True,
+-    ),
+-    (
+-        App("Generator", (Type(int), Type(bool), Type(int))),
+-        App("Generator", (Type(int), Type(int), Type(int))),
+-        False,
+-    ),
+-    # tuple is covariant in every element; list is invariant
+-    (App("tuple", (Type(bool), Lit((1,)))), App("tuple", (Type(int),) * 2), True),
+-    (App("tuple", (Type(bool),)), App("tuple", (Type(int),) * 2), False),
+-    (App("list", (Type(bool),)), App("list", (Type(int),)), False),
+-]
+-
+-
+-@pytest.mark.parametrize(("sub", "sup", "expected"), SUBTYPE_CASES)
+-def test_subtype(sub: Any, sup: Any, expected: bool) -> None:
+-    assert subtype(sub, sup) is expected
+-
+-
+ def test_return_union_parenthesized() -> None:
+     # a union intersected with a typevar is parenthesized, also in return position
+     def f(x: Any) -> Any:
+@@ -451,30 +383,6 @@ def test_infer_generator_yields() -> None:
+ 
+     assert infer(empty) == "() -> Generator[Never]"
+ 
+-    # a yield whose type is a (nominal) subtype of another is absorbed into it
+-    def nominal() -> Any:
+-        yield True
+-        yield 1
+-
+-    assert infer(nominal) == "() -> Generator[int]"
+-
+-    def raisable() -> Any:
+-        yield FileNotFoundError()
+-        yield OSError()
+-
+-    assert infer(raisable) == "() -> Generator[OSError]"
+-
+-    # user-defined subclass relations are recognized as well
+-    class Base: ...
+-
+-    class Child(Base): ...
+-
+-    def custom() -> Any:
+-        yield Child()
+-        yield Base()
+-
+-    assert infer(custom) == "() -> Generator[Base]"
+-
+     # an infinite generator terminates once a yield shape repeats, without exploding R
+     def loop(x: Any) -> Any:
+         while True:
