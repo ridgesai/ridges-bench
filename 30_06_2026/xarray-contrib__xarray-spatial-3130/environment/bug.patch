@@ -1,0 +1,226 @@
+diff --git a/.claude/sweep-accuracy-state.csv b/.claude/sweep-accuracy-state.csv
+index 18990147..a1c00e42 100644
+--- a/.claude/sweep-accuracy-state.csv
++++ b/.claude/sweep-accuracy-state.csv
+@@ -26,7 +26,7 @@ normalize,2026-05-01,,,,rescale and standardize across all 4 backends. NaN/inf f
+ perlin,2026-04-10T12:00:00Z,,,,Improved Perlin noise implementation correct. Fade/gradient functions verified. Backend-consistent. Continuous at cell boundaries.
+ polygon_clip,2026-04-13T12:00:00Z,1197,,,crop=True + all_touched=True drops boundary pixels. Fix in PR #1200.
+ polygonize,2026-05-29,2606,HIGH,5,"Cat 5 HIGH: dask connectivity=8 cross-chunk merge filled diagonal notch where same-value regions meet only at a corner across a chunk boundary; total area exceeded raster. Hole ring was dropped because containment tested hole[0] (on exterior at pinch). Fixed via _ring_interior_point in PR for #2606. numpy, dask+numpy, dask+cupy area parity now holds; 4-conn was already correct. cupy + dask+cupy paths validated on GPU host. Other cats clean: NaN masked on numpy/cupy float paths (tested), _is_close handles +/-inf via exact-equality short-circuit, atol/rtol/simplify_tolerance reject NaN/inf, integer GPU CCL matches numpy."
+-proximity,2026-06-09,3108,HIGH,4;5,"Cat5/Cat4: bounded GREAT_CIRCLE dask (numpy+cupy) missed targets across the +/-180 antimeridian seam: _halo_depth sized x-halo as linear parallel-arc sum, but haversine is periodic in lon and chords shorten near poles, so array-space adjacency is no lower bound on spherical distance; numpy/cupy (brute force) found the wrap target (~111 km), dask returned NaN. Fixed in #3108 via chord bound 2R asin(cos(lat_max)|sin(dlon/2)|) + x-axis fold when seam/180-deg chord within max_distance (covers over-pole too). CUDA host: cupy + dask+cupy executed, 417+ tests pass. Cat1-3 clean (float32 output documented; NaN via isfinite consistent; bounds guards correct; tie-break unified in #2881). LOW (not fixed): great_circle_distance uses WGS84 equatorial radius 6378137 as sphere radius (~0.1% vs mean-radius convention) but documented and exposed as param."
++proximity,2026-05-29,2721,MEDIUM,4;5,Bounded GREAT_CIRCLE on dask (both numpy+cupy) raised ValueError: map_overlap pad depth = max_distance/cellsize mixed metre distance with degree cellsize. numpy/cupy backends fine. Fixed by measuring per-pixel pitch with active metric (PR #2722). Cat1 float32 output is documented design choice; NaN/Inf masking via np.isfinite consistent; numpy GDAL-sweep matches exact nearest and cupy brute-force on tested grids.
+ rasterize,2026-06-09,3085,MEDIUM,2,"Cat2: non-finite burn values (NaN/inf, e.g. GeoDataFrame column with missing data) against integer output dtype silently cast to platform sentinel (NaN -> INT_MIN) on all 4 backends; bool dtype collapses NaN to True. numpy path suppresses the cast RuntimeWarning so it is fully silent. Fix #3085 mirrors NaN-fill guard #2504 and unsafe-int guard #3056; merge='count' exempt (never reads props). Cats 1/3/4/5 clean: CUDA available, ran 4-backend parity probe (mixed polygon/line/point, all 6 builtin merges, all_touched, chunked 17x23) -- bit-identical across numpy/cupy/dask+numpy/dask+cupy; 665 rasterize tests pass. GPU atomic min/max NaN handling (#2255) verified correct; non-atomic _merge_min_gpu/_merge_max_gpu device fns lack the NaN branch but are unreachable dead code (string merges always take the atomic ladder). Scanline ceil (GPU int-trunc emulation) matches CPU np.ceil for negative x. No Earth-curvature surface (planar vector rasterization by design)."
+ reproject,2026-06-09,3094,HIGH,4;5,"HIGH #3094: try_cuda_transform missing the #2651 non-WGS84 datum guard; cupy/dask+cupy 4326<->27700 (and DHDN/MGI/ED50/NAD27 entries) project with WGS84 Krueger + no datum shift, ~80-100 m coordinate error, end-to-end numpy-vs-cupy value diff 0.094 on [0,1] data with 5 NaN-mask flips (verified on GPU). MEDIUM #3096: empty-chunk returns in _reproject_chunk_numpy/_cupy and _reproject_block_adapter hardcode float64, so integer-source dask reproject computes float64 when any chunk misses the source footprint while meta advertises int (eager backend returns int). LOW (doc only): _place_same_crs accepts 1% res mismatch for direct placement, up to ~1% of tile width misregistration at the far edge on large same-CRS merge tiles. Cats 1-3 clean: f64 kernels, GDAL-style NaN renorm, correct bounds guards; projection series/constants match PROJ. CUDA available; GPU paths executed."
+ resample,2026-05-29,2610,HIGH,3;5,"dask interp (nearest/bilinear) overlap depth=1 too small on downsample; block-centered source coord landed past chunk, map_coordinates clamped to edge -> wrong seam rows. Fixed PR #2627 via per-axis _downsample_radius. cupy+dask+cupy verified."
+diff --git a/xrspatial/proximity.py b/xrspatial/proximity.py
+index 4f2e5284..ba7b25e5 100644
+--- a/xrspatial/proximity.py
++++ b/xrspatial/proximity.py
+@@ -284,65 +284,6 @@ def _check_monotonic_coords(x_coords, y_coords, x, y):
+             )
+ 
+ 
+-def _great_circle_col_halo(x_coords, y_coords, max_distance):
+-    """Column halo depth (in pixels) for the GREAT_CIRCLE metric.
+-
+-    Great-circle distance is periodic in longitude (haversine takes the
+-    short way around the sphere) and its chords shorten toward the poles,
+-    so a linear sum of per-column step distances is not a lower bound on
+-    the spherical distance between two grid points. Use the chord bound
+-
+-        dist(p, t) >= 2 * R * asin(cos(lat_max) * |sin(dlon / 2)|)
+-
+-    which holds for every pair of grid points (``lat_max`` is the largest
+-    absolute latitude on the raster). Inverting it for ``max_distance``
+-    gives ``dlon_max``: any pair separated by more than ``dlon_max``
+-    degrees of longitude (the short way around) is farther apart than
+-    ``max_distance`` no matter the latitudes.
+-
+-    When the bound cannot exclude anything -- ``max_distance`` reaches the
+-    180-degree chord at ``lat_max``, or targets across the +/-180 seam are
+-    within reach (seam gap <= ``dlon_max``) -- no array-space halo can
+-    cover the wrap. Return a depth one larger than the axis so
+-    ``_fit_halo_to_chunks`` folds the x axis into a single chunk and every
+-    chunk sees all columns.
+-    """
+-    width = len(x_coords)
+-    if width < 2:
+-        return 0
+-    fold = width + 1
+-
+-    radius = 6378137.0
+-    half_angle = max_distance / (2.0 * radius)
+-    if half_angle >= np.pi / 2.0:
+-        # max_distance spans half the circumference: everything is in reach.
+-        return fold
+-
+-    cos_lat_max = np.cos(np.radians(np.abs(np.asarray(y_coords)).max()))
+-    sin_half = np.sin(half_angle)
+-    if sin_half >= cos_lat_max:
+-        # Even a 180-degree longitude gap at the worst-case latitude stays
+-        # within max_distance, so no longitude separation excludes a target.
+-        return fold
+-
+-    dlon_max = np.degrees(2.0 * np.arcsin(sin_half / cos_lat_max))
+-
+-    # Wrap check: the smallest longitude separation through the +/-180 seam
+-    # is between the first and last columns. If that is within dlon_max, a
+-    # target near one edge of the array can be the nearest target of a pixel
+-    # near the opposite edge, which no per-chunk halo can express.
+-    span = abs(float(x_coords[-1]) - float(x_coords[0]))
+-    seam_gap = 360.0 - span
+-    if seam_gap <= dlon_max:
+-        return fold
+-
+-    # No wrap in reach: a target k columns away is at least k * min_step
+-    # degrees of longitude away (monotonic coords), so columns beyond
+-    # dlon_max / min_step are excluded by the chord bound.
+-    min_step = np.abs(np.diff(np.asarray(x_coords, dtype=np.float64))).min()
+-    return int(np.ceil(dlon_max / min_step))
+-
+-
+ def _halo_depth(x_coords, y_coords, max_distance, distance_metric):
+     """Overlap depth in pixels for the bounded dask map_overlap call.
+ 
+@@ -361,15 +302,10 @@ def _halo_depth(x_coords, y_coords, max_distance, distance_metric):
+     no halo along that axis (depth 0), so (1, N) and (N, 1) rasters do not
+     crash on the missing second coordinate.
+ 
+-    For GREAT_CIRCLE the column depth comes from the spherical chord bound
+-    in ``_great_circle_col_halo``: longitude is periodic and chords shorten
+-    toward the poles, so a per-column linear step sum is not a valid lower
+-    bound there. When targets across the +/-180 seam are within
+-    ``max_distance``, the returned column depth exceeds the axis length so
+-    ``_fit_halo_to_chunks`` folds the axis. The row depth stays linear: the
+-    great-circle distance between two points is never smaller than their
+-    meridian (north-south) separation, so the per-row step sum is a valid
+-    lower bound for every metric.
++    For GREAT_CIRCLE the east-west distance per degree of longitude shrinks
++    toward the poles, so the column spacing is measured at the highest-latitude
++    row (largest absolute y) to take the worst case. The north-south distance
++    does not depend on longitude, so the row spacing uses a fixed longitude.
+     """
+     def _min_step_distance(coords, x_ref, y_ref, along):
+         if len(coords) < 2:
+@@ -386,15 +322,15 @@ def _halo_depth(x_coords, y_coords, max_distance, distance_metric):
+                 smallest = d
+         return smallest
+ 
++    # Worst-case latitude for east-west spacing: the row farthest from the
++    # equator, where a degree of longitude covers the least ground.
++    y_worst = max(y_coords, key=abs)
++
+     dist_per_row = _min_step_distance(y_coords, x_coords[0], None, "row")
+-    pad_y = 0 if dist_per_row is None else int(max_distance / dist_per_row + 0.5)
++    dist_per_col = _min_step_distance(x_coords, None, y_worst, "col")
+ 
+-    if distance_metric == GREAT_CIRCLE:
+-        pad_x = _great_circle_col_halo(x_coords, y_coords, max_distance)
+-    else:
+-        dist_per_col = _min_step_distance(x_coords, None, y_coords[0], "col")
+-        pad_x = 0 if dist_per_col is None else int(
+-            max_distance / dist_per_col + 0.5)
++    pad_y = 0 if dist_per_row is None else int(max_distance / dist_per_row + 0.5)
++    pad_x = 0 if dist_per_col is None else int(max_distance / dist_per_col + 0.5)
+     return pad_y, pad_x
+ 
+ 
+diff --git a/xrspatial/tests/test_proximity.py b/xrspatial/tests/test_proximity.py
+index 4887aabd..d2cbff81 100644
+--- a/xrspatial/tests/test_proximity.py
++++ b/xrspatial/tests/test_proximity.py
+@@ -1415,95 +1415,6 @@ def test_great_circle_dask_bounded_matches_numpy(func):
+     )
+ 
+ 
+-# ---------------------------------------------------------------------------
+-# Regression tests for issue #3108: bounded GREAT_CIRCLE on dask missed
+-# targets across the +/-180 antimeridian seam. The map_overlap halo is sized
+-# in array space, but great-circle distance is periodic in longitude, so a
+-# target near one edge of the array can be the nearest target of a pixel
+-# near the opposite edge. numpy/cupy (whole-raster brute force) found it;
+-# dask+numpy/dask+cupy returned NaN.
+-# ---------------------------------------------------------------------------
+-
+-def _antimeridian_raster():
+-    lon = np.arange(-179.5, 180.0, 1.0)   # 360 columns spanning the seam
+-    lat = np.arange(-5.0, 6.0, 1.0)
+-    data = np.zeros((lat.size, lon.size))
+-    data[5, 0] = 1.0                       # target at (lat 0, lon -179.5)
+-    raster = xr.DataArray(data, dims=['lat', 'lon'])
+-    raster['lon'] = lon
+-    raster['lat'] = lat
+-    return raster
+-
+-
+-@pytest.mark.skipif(da is None, reason="dask is not installed")
+-@pytest.mark.parametrize("backend", ['dask+numpy', 'dask+cupy'])
+-@pytest.mark.parametrize("func", [proximity, allocation, direction])
+-def test_great_circle_dask_antimeridian_matches_numpy(backend, func):
+-    """Bounded GREAT_CIRCLE dask sees targets across the +/-180 seam."""
+-    if has_cuda_and_cupy() is False and 'cupy' in backend:
+-        pytest.skip("Requires CUDA and CuPy")
+-
+-    raster = _antimeridian_raster()
+-    kwargs = dict(x='lon', y='lat', distance_metric='GREAT_CIRCLE',
+-                  max_distance=250_000.0)
+-
+-    numpy_result = func(raster, **kwargs)
+-    # The wrap pixel at lon 179.5 is ~111 km from the target at lon -179.5,
+-    # within max_distance: it must be found, not NaN.
+-    assert np.isfinite(numpy_result.values[5, -1])
+-
+-    chunk_data = raster.data
+-    if 'cupy' in backend:
+-        import cupy
+-        chunk_data = cupy.asarray(chunk_data)
+-    dask_raster = raster.copy(data=da.from_array(chunk_data, chunks=(11, 60)))
+-    dask_result = func(dask_raster, **kwargs)
+-
+-    result_data = dask_result.data.compute()
+-    if 'cupy' in backend:
+-        result_data = result_data.get()
+-    np.testing.assert_allclose(
+-        result_data, numpy_result.values, rtol=1e-5, equal_nan=True,
+-    )
+-
+-
+-def test_great_circle_halo_folds_on_wrap_and_pole():
+-    """_halo_depth signals an x-axis fold when the chord bound cannot help."""
+-    from xrspatial.proximity import GREAT_CIRCLE, _halo_depth
+-
+-    # Raster spanning the antimeridian: seam gap (1 degree) within reach.
+-    lon = np.arange(-179.5, 180.0, 1.0)
+-    lat = np.arange(-5.0, 6.0, 1.0)
+-    _, pad_x = _halo_depth(lon, lat, 250_000.0, GREAT_CIRCLE)
+-    assert pad_x > len(lon), "wrap-reachable raster must fold the x axis"
+-
+-    # Pole-adjacent raster: the 180-degree chord at lat 89.75 is ~62 km,
+-    # within max_distance, so no longitude separation excludes a target.
+-    lon = np.arange(0.0, 180.0, 1.0)
+-    lat = np.arange(88.0, 90.0, 0.25)
+-    _, pad_x = _halo_depth(lon, lat, 500_000.0, GREAT_CIRCLE)
+-    assert pad_x > len(lon), "pole-adjacent raster must fold the x axis"
+-
+-    # Regional raster far from seam and pole: finite halo, no fold.
+-    lon = np.arange(0.0, 10.0, 0.1)
+-    lat = np.arange(40.0, 45.0, 0.1)
+-    pad_y, pad_x = _halo_depth(lon, lat, 50_000.0, GREAT_CIRCLE)
+-    assert 0 < pad_x < len(lon)
+-    assert pad_y > 0
+-
+-    # Descending coordinates (allowed by the monotonic check) give the same
+-    # halo: span and step are direction-independent.
+-    pad_y_desc, pad_x_desc = _halo_depth(
+-        lon[::-1], lat[::-1], 50_000.0, GREAT_CIRCLE)
+-    assert (pad_y_desc, pad_x_desc) == (pad_y, pad_x)
+-
+-    # Descending wrap raster still folds.
+-    lon_desc = np.arange(-179.5, 180.0, 1.0)[::-1]
+-    lat_desc = np.arange(-5.0, 6.0, 1.0)[::-1]
+-    _, pad_x = _halo_depth(lon_desc, lat_desc, 250_000.0, GREAT_CIRCLE)
+-    assert pad_x > len(lon_desc)
+-
+-
+ # ---------------------------------------------------------------------------
+ # Coverage gaps closed for issue #2692 (test-only; no source change).
+ #
