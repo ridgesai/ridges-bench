@@ -1,0 +1,158 @@
+diff --git a/xrspatial/accessor.py b/xrspatial/accessor.py
+index e9bde32b..d2d405a8 100644
+--- a/xrspatial/accessor.py
++++ b/xrspatial/accessor.py
+@@ -11,8 +11,6 @@ directly via tab-completion::
+     nir.xrs.ndvi(red)
+ """
+ 
+-import warnings
+-
+ import xarray as xr
+ 
+ 
+@@ -150,12 +148,6 @@ def _bbox_edge_samples(x_min, y_min, x_max, y_max, n_per_side=20):
+ 
+ _RESAMPLING_CHOICES = ('auto', 'nearest', 'bilinear', 'cubic')
+ 
+-# coregister=True paints the file onto the caller's full grid, NaN-filling
+-# everything outside the file footprint. Below this coverage fraction the
+-# result is mostly NaN, so warn and point at the crop-the-caller-first
+-# pattern instead.
+-_COREGISTER_COVERAGE_WARN_FRACTION = 0.10
+-
+ 
+ def _resolve_resampling(resampling, result):
+     """Resolve an ``'auto'`` resampling choice for the reproject step.
+@@ -327,26 +319,6 @@ def _open_geotiff_windowed(obj, source, *, auto_reproject=False,
+                                y_min, y_max, x_min, x_max)
+     kwargs.pop('window', None)
+ 
+-    if coregister:
+-        # Both extents are in file pixel units here: the caller bbox was
+-        # transformed into the file CRS above when the two differ, and
+-        # ``window`` is that bbox clamped to the file bounds, so the area
+-        # ratio is the fraction of the caller grid the file can fill.
+-        row_start, col_start, row_stop, col_stop = window
+-        window_area = (max(0, row_stop - row_start)
+-                       * max(0, col_stop - col_start))
+-        req_rows = (y_max - y_min) / abs(t.pixel_height)
+-        req_cols = (x_max - x_min) / abs(t.pixel_width)
+-        coverage = window_area / (req_rows * req_cols)
+-        if 0 < coverage < _COREGISTER_COVERAGE_WARN_FRACTION:
+-            warnings.warn(
+-                f"{source!r} covers only {coverage:.1%} of the caller "
+-                "grid; the coregistered result will be mostly NaN. "
+-                "Consider opening the small raster first and cropping "
+-                "the caller to its bounds before coregistering.",
+-                UserWarning, stacklevel=3,
+-            )
+-
+     # Infer backend kwargs. Caller-supplied values always win.
+     backend = _classify_backend(obj)
+     # Coerce here because reproject's chunk layout only unpacks builtin
+@@ -984,9 +956,6 @@ class XrsSpatialDataArrayAccessor:
+             unpack-and-reproject read runs on CPU only, so
+             ``coregister=True`` raises ``ValueError`` with ``gpu=True`` or
+             ``.vrt`` sources, and it overrides an explicit ``unpack=False``.
+-            Cells outside the file footprint come back NaN; if the file
+-            covers less than 10% of ``self``'s grid a ``UserWarning``
+-            suggests cropping ``self`` to the file bounds first.
+             The resample mode follows ``resampling``. This is the heavier
+             counterpart of ``auto_reproject``, which keeps the file's native
+             resolution.
+@@ -1520,9 +1489,6 @@ class XrsSpatialDatasetAccessor:
+             unpack-and-reproject read runs on CPU only, so
+             ``coregister=True`` raises ``ValueError`` with ``gpu=True`` or
+             ``.vrt`` sources, and it overrides an explicit ``unpack=False``.
+-            Cells outside the file footprint come back NaN; if the file
+-            covers less than 10% of the Dataset's grid a ``UserWarning``
+-            suggests cropping the Dataset to the file bounds first.
+             The resample mode follows ``resampling``.
+         resampling : {'auto', 'nearest', 'bilinear', 'cubic'}
+             Resampling mode for the ``auto_reproject`` / ``coregister``
+diff --git a/xrspatial/tests/test_open_geotiff_coregister.py b/xrspatial/tests/test_open_geotiff_coregister.py
+index e3427e22..c88a812a 100644
+--- a/xrspatial/tests/test_open_geotiff_coregister.py
++++ b/xrspatial/tests/test_open_geotiff_coregister.py
+@@ -2,8 +2,6 @@
+ unpack + reproject + resample onto the caller's exact grid)."""
+ from __future__ import annotations
+ 
+-import warnings
+-
+ import numpy as np
+ import pytest
+ import xarray as xr
+@@ -278,71 +276,3 @@ def test_coregister_vrt_guard(tmp_path):
+     template = _template_3857(6)
+     with pytest.raises(ValueError, match="not supported with gpu"):
+         template.xrs.open_geotiff('nonexistent.vrt', coregister=True)
+-
+-
+-# ---------------------------------------------------------------------------
+-# sparse-coverage warning (issue #3246)
+-# ---------------------------------------------------------------------------
+-
+-def test_coregister_warns_when_file_covers_small_fraction(tmp_path):
+-    # 1x1 degree file against a 10x10 degree template: ~1% coverage.
+-    path = _file_4326(tmp_path, np.float32, 'cg3246_small.tif')
+-    template = xr.DataArray(
+-        np.zeros((100, 100), dtype=np.float32),
+-        dims=['y', 'x'],
+-        coords={'y': np.linspace(50.0, 40.0, 100),
+-                'x': np.linspace(-125.0, -115.0, 100)},
+-        attrs={'crs': 4326},
+-    )
+-    with pytest.warns(UserWarning, match="covers only"):
+-        out = template.xrs.open_geotiff(path, coregister=True)
+-    # The warning changes nothing about the result itself.
+-    assert out.shape == template.shape
+-    assert np.allclose(out.coords['x'].values, template.coords['x'].values)
+-    assert np.allclose(out.coords['y'].values, template.coords['y'].values)
+-
+-
+-def test_coregister_warns_dask_template(tmp_path):
+-    # The motivating case for #3246: a large dask-backed template. The
+-    # check runs on metadata before the read, so the warning fires
+-    # without computing, and the result stays lazy with caller chunks.
+-    path = _file_4326(tmp_path, np.float32, 'cg3246_dask.tif')
+-    template = xr.DataArray(
+-        np.zeros((100, 100), dtype=np.float32),
+-        dims=['y', 'x'],
+-        coords={'y': np.linspace(50.0, 40.0, 100),
+-                'x': np.linspace(-125.0, -115.0, 100)},
+-        attrs={'crs': 4326},
+-    ).chunk({'y': 50, 'x': 50})
+-    with pytest.warns(UserWarning, match="covers only"):
+-        out = template.xrs.open_geotiff(path, coregister=True)
+-    assert out.data.chunksize == (50, 50)
+-
+-
+-def test_coregister_full_coverage_no_warning(tmp_path):
+-    # Template sits entirely inside the file footprint: no warning.
+-    path = _file_4326(tmp_path, np.float32, 'cg3246_full.tif')
+-    template = _template_3857(6)
+-    with warnings.catch_warnings(record=True) as caught:
+-        warnings.simplefilter("always")
+-        template.xrs.open_geotiff(path, coregister=True)
+-    assert not [w for w in caught if "covers only" in str(w.message)]
+-
+-
+-def test_coregister_warns_small_fraction_crs_mismatch(tmp_path):
+-    # Coverage is computed after the caller bbox is transformed into the
+-    # file CRS, so the warning also fires across a CRS mismatch.
+-    from pyproj import Transformer
+-    path = _file_4326(tmp_path, np.float32, 'cg3246_mismatch.tif')
+-    tr = Transformer.from_crs(4326, 3857, always_xy=True)
+-    x0, y0 = tr.transform(-125.0, 50.0)
+-    x1, y1 = tr.transform(-115.0, 40.0)
+-    template = xr.DataArray(
+-        np.zeros((100, 100), dtype=np.float32),
+-        dims=['y', 'x'],
+-        coords={'y': np.linspace(max(y0, y1), min(y0, y1), 100),
+-                'x': np.linspace(min(x0, x1), max(x0, x1), 100)},
+-        attrs={'crs': 3857},
+-    )
+-    with pytest.warns(UserWarning, match="covers only"):
+-        template.xrs.open_geotiff(path, coregister=True)
