@@ -1,0 +1,359 @@
+diff --git a/.claude/sweep-api-consistency-state.csv b/.claude/sweep-api-consistency-state.csv
+index cd2301a5..3511244b 100644
+--- a/.claude/sweep-api-consistency-state.csv
++++ b/.claude/sweep-api-consistency-state.csv
+@@ -3,7 +3,6 @@ focal,2026-05-29,2689,HIGH,1;2;3;4,"Sweep 2026-05-29 (deep-sweep-api-consistency
+ geotiff,2026-06-09,3086,MEDIUM,3,"Sweep 2026-06-09 (deep-sweep-api-consistency-geotiff-2026-06-09). 1 MEDIUM Cat 3 finding fixed in this branch (#3086): after the mask_and_scale -> unpack rename (#3071/PR #3075), user-facing strings still presented the deprecated alias as canonical: to_geotiff's pack docstring said 'Inverse of open_geotiff(mask_and_scale=True)', and errors on the public unpack=True/pack=True paths named the alias (MalformedScaleOffsetError x2 and the MixedBandMetadataError remedy 'or drop mask_and_scale' in _attrs.py; the _pack ValueError 'not produced by open_geotiff(mask_and_scale=True)'; the to_geotiff pack ValueError in _writers/eager.py). Fix updates the docstring + error strings to name unpack. Intentionally unchanged: internal backend kwargs still named mask_and_scale (private modules) and the attrs key mask_and_scale_dtype (contract v5). Regression tests pin that the messages name unpack and not the alias (tests/read/test_rioxarray_compat_2961.py #3086 section; tests/write/test_pack_3064.py). Other categories: no Cat 1 in-module drift (reader/writer share gpu/allow_* names; masked/default_name/unpack follow rioxarray open_rasterio deliberately, with deprecated aliases mask_nodata/name/mask_and_scale that warn); no Cat 2 (open_geotiff -> DataArray, to_geotiff returns path, both documented); no Cat 4 (reader gpu=False vs writer gpu=None auto-detect is documented; no mutable defaults); no Cat 5 orphan API (public surface = open_geotiff/to_geotiff/SUPPORTED_FEATURES/errors per __all__; plot_geotiff deprecated WITH DeprecationWarning; tests/parity/test_signature_contract.py + unit/test_signatures.py already pin docstring/signature parity). LOW documented, not fixed: examples/user_guide/52_COG_Overview_Generation.ipynb imports private _header.parse_header/parse_all_ifds (no public IFD-inspection API exists). Cross-cutting documented, not filed per template: chunks (geotiff, xarray/rioxarray convention) vs chunk_size (reproject); default_name (geotiff, rioxarray-compat) vs name (reproject) is by design. cuda-validated: CUDA_AVAILABLE=True; gpu=True and gpu=True+chunks smoke-tested on open_geotiff/to_geotiff with kwarg parity and CPU/GPU pixel parity."
+ hydro-d8,2026-05-29,2709,HIGH,1;5,"Sweep 2026-05-29 (deep-sweep-api-consistency-hydro-d8-2026-05-29). Scope = the 13 D8-variant files only; dinf/mfd read for reference but not modified. 1 HIGH Cat 1 + 1 MEDIUM Cat 5 fixed in this branch (#2709, PR #2716). HIGH Cat 1: stream_order_d8 named its strahler/shreve selector `ordering` while sibling stream_order_dinf/stream_order_mfd use `method`; both names live in the public API and the __init__.py _StreamOrderDispatch special-cases the drift (translates ordering->method for non-d8). Fix adds `method` as an accepted alias on stream_order_d8 (case-insensitive; takes precedence; conflicting ordering+method raises ValueError), keeping `ordering` working so the out-of-scope dispatcher (passes ordering=) and existing callers are unaffected. Full rename to `method` deferred because deprecating `ordering` would warn on every stream_order(routing='d8') call via the dispatcher I cannot touch in this scope. MEDIUM Cat 5: basins_d8 (watershed_d8.py) is a backward-compat wrapper whose docstring said 'use basin instead' but emitted no warning; added DeprecationWarning(stacklevel=2). Tests added for alias parity/precedence/conflict/case-insensitivity and for the basins_d8 warning. Findings documented but NOT filed per template: (LOW Cat 1 cross-module, out of scope) dinf siblings name the first arg `flow_dir_dinf` (stream_link/flow_path/hand/watershed_dinf) while all D8 funcs use the cleaner `flow_dir`; D8 is the better convention so no D8 change -- the drift lives in the dinf files. (LOW Cat 4 defensive-validation drift) hand_d8 validates np.isfinite(threshold) but stream_link_d8/stream_order_d8 (same threshold: float = 100 param) do not; not user-facing signature surprise, document only. No Cat 2 return drift (every D8 public fn returns xr.DataArray with coords/dims/attrs preserved; Dataset in -> Dataset out via @supports_dataset). No Cat 3 missing-hints beyond fill_d8 z_limit (optional, no hint) which mirrors its sibling style. All 13 D8 funcs are re-exported in xrspatial/hydro/__init__.py (no orphan API). cuda-validated: CUDA_AVAILABLE=True on this host; method-alias parity smoke-tested on a cupy DataArray. CI: ubuntu/windows/3.12 GitHub Actions green; macOS-3.14 + ReadTheDocs slow but no failures. NOTE: the /review-pr review comment could not be posted to GitHub (auto-mode permission denial on gh pr review); review findings were applied to code instead (case-insensitive conflict check + str|None hint, commit f8467320)."
+ polygonize,2026-05-19,2148,HIGH,1;3,"Sweep 2026-05-19 (deep-sweep-api-consistency-polygonize-2026-05-19). 1 MEDIUM Cat 3 finding fixed in this branch (#2148): polygonize() was the only public vector/raster conversion function without a return type annotation. Sieve/contours/rasterize/clip_polygon all declare one. Fix adds a Union return annotation (numpy tuple | awkward tuple | geopandas GeoDataFrame | spatialpandas GeoDataFrame | geojson dict) using TYPE_CHECKING forward refs for optional deps, and expands the docstring Returns section to enumerate the per-return_type shapes. 1 HIGH Cat 1 finding NOT fixed in this PR -- cross-module rename: polygonize uses `connectivity` (int 4|8) while sieve uses `neighborhood` (int 4|8) for the identical rook/queen pixel-connectivity concept. Industry convention (GDAL, rasterio.features.sieve) favours `connectivity`; the deprecation shim belongs in sieve.py, not polygonize, so this is out of scope for the polygonize-scoped sweep branch. Documented here for the next sieve sweep pass. 1 LOW Cat 1 cross-cutting: polygonize/sieve/clip_polygon use `raster` while contours and many older modules use `agg` for the input DataArray -- library-wide drift, not filed per-module per sweep template. Cat 2 return-shape: polygonize returns tuple/GeoDataFrame/dict by return_type; consistent with contours' tuple/GeoDataFrame dispatch. No Cat 4 (no mutable defaults; connectivity=4 default matches sieve neighborhood=4 default). No Cat 5 (polygonize re-exported in xrspatial/__init__.py; no orphan API; no __all__ but consistent with module convention). cuda-validated: cupy backend accepts identical kwargs, smoke-tested with cupy DataArray on host with CUDA_AVAILABLE."
+-proximity,2026-06-09,3090;3091,HIGH,2;3,"Sweep 2026-06-09 (deep-sweep-api-consistency-proximity-2026-06-09). 1 HIGH Cat 2 finding (#3090): dask+numpy (and unbounded dask+cupy, which converts to it) KDTree path violates the documented lowest-flat-index tie-break in allocation()/direction() whenever the raster has >1 chunk column. _collect_region_targets concatenates targets chunk-major (iy outer, ix inner) so the tree's target order is not global row-major; _kdtree_query_lowest_index then ties to the wrong target. Existing tie-break tests put both targets in the same raster row where chunk order coincides with row-major, so they pass. Repro: 5x5, targets 2@(1,3) and 3@(2,2), chunks (5,3), pixel (2,3) tied at d=1 -> numpy gives 2, dask gives 3. Bounded map_overlap paths are fine (local row-major order is offset-invariant). 1 MEDIUM Cat 3 finding (#3091): all 3 public docstrings claim numpy + dask+numpy support only while cupy/dask+cupy backends exist, are dispatched, and are tested (the tie-break paragraphs in the same docstrings name all 4 backends); direction() opens with a stray copy-pasted slope line ('downward slope direction') plus a doubled 'the the'; allocation example output reads as float64 but the function returns float32; stale '# convert to have same type as of input @raster' comment. Within-module Cat 1/4/5 clean: proximity/allocation/direction share an identical signature (raster, x='x', y='y', target_values=None, max_distance=np.inf, distance_metric='EUCLIDEAN'); consistent with surface_distance siblings (raster/x/y/target_values/max_distance); all 6 public symbols (incl. euclidean/manhattan/great_circle_distance) re-exported in __init__.py, no orphan API. Cross-cutting, documented not filed: sibling distance modules (surface_distance, cost_distance, balanced_allocation) use mutable default target_values: list = [] while proximity uses the None sentinel - the mutable-default fix belongs to those modules; proximity's target_values: list = None hint would be more precise as Optional[list] (LOW, matches library style). cuda-validated: CUDA_AVAILABLE=True on this host; proximity/allocation/direction smoke-tested with identical kwargs on numpy, cupy, dask+numpy, dask+cupy (proximity parity passed; allocation/direction parity failure is finding #3090)."
+ rasterize,2026-06-09,3089,HIGH,1,"Sweep 2026-06-09 (deep-sweep-api-consistency-rasterize-2026-06-09). 1 HIGH Cat 1 fixed in this branch (#3089): rasterize(use_cuda=) vs open_geotiff(gpu=) named the identical GPU-backend opt-in differently; these are the only two public entry points with an explicit GPU boolean (no input array to dispatch on; both pair it with chunks= for dask) and both names were live in the public API at once. Fix renames the positional param to gpu (same slot, positional callers unaffected) and appends use_cuda=None as a deprecated alias: DeprecationWarning on use, TypeError when combined with gpu=True. Docstring, GPU merge warning text, CuPy ImportError text, and polygon_clip.py's internal dask+cupy caller updated (guarded so a legacy use_cuda in rasterize_kw does not collide with the new default); all rasterize test call sites migrated to gpu=; regression tests in test_rasterize_gpu_alias_3089.py pin slot position, warning, TypeError, backend parity, and the warning-free clip_polygon path. Re-inspection after the 2026-05-21 pass (#2250); prior cross-module notes (clip_polygon nodata vs fill, name default drift, polygonize column_name vs column) still documented-only. Docstring/signature parity verified programmatically (17/17 params, order matches). New params since last pass (check_crs, max_pixels) consistent with geotiff naming (max_pixels matches geotiff's). No Cat 2/4/5 findings. LOW noted, not fixed (other module's docs): docs/source/user_guide/focal.ipynb claims convolve_2d takes use_cuda, which it does not. cuda-validated: CUDA_AVAILABLE=True; numpy/cupy/dask+numpy/dask+cupy smoke-tested with identical kwargs, values equal."
+ reproject,2026-05-29,2613,MEDIUM,1,"Sweep 2026-05-29 (deep-sweep-api-consistency-reproject-2026-05-29). 1 MEDIUM Cat 1 finding fixed in this branch (#2613, PR #2626): reproject() spelled the source/target concept two ways in one signature -- source_crs/target_crs (full words) for horizontal CRS but src_vertical_crs/tgt_vertical_crs (abbreviated) for the vertical datum. Renamed the vertical kwargs to source_vertical_crs/target_vertical_crs with a deprecation shim: old names still accepted, emit DeprecationWarning, and passing both old+new for one side raises TypeError. Docstring updated; existing vertical-shift tests migrated to new names; added back-compat + conflict tests. Verified on numpy AND cupy entry points (shared signature; backend dispatch is internal). Other findings documented but NOT filed per template: (LOW Cat 1) itrf_transform(src=/tgt=) uses abbreviated keyword-only names for ITRF frame names vs source_crs/target_crs elsewhere -- separate function family (frames, not CRS), left as-is. (LOW cross-cutting Cat 1) first-arg `raster` (reproject)/`rasters` (merge) vs `agg` in terrain modules -- library-wide drift, not per-module. Prior #1570 vertical_crs EPSG-int collision confirmed still fixed. No Cat 2 return drift (reproject/merge both return DataArray as documented; geoid_height scalar/array and itrf_transform tuple are distinct families). No Cat 4 default drift (resampling/transform_precision/chunk_size/bounds_policy/model defaults consistent across siblings). No Cat 5 orphan API (itrf_frames is list_frames aliased in __all__; vertical/itrf funcs namespaced under xrspatial.reproject like geotiff's funcs). cuda-validated: CUDA_AVAILABLE=True on this host."
+ resample,2026-05-27,2544,MEDIUM,3,"Sweep 2026-05-27 (deep-sweep-api-consistency-resample-2026-05-27). 1 MEDIUM Cat 3 finding fixed in this branch (#2544): resample() was the only public symbol in xrspatial.resample without type annotations on any parameter or return; siblings slope/aspect/hillshade/curvature all annotate `agg: xr.DataArray` and `-> xr.DataArray`. Fix adds annotations matching the docstring (agg: xr.DataArray; scale_factor / target_resolution: float | tuple[float, float] | None; method: str; nodata: float | None; name: str) and a `-> xr.DataArray` return type, plus a docstring note that the @supports_dataset decorator accepts Dataset too. Regression test test_resample_signature_annot_2544.py pins every param and the return annotation. Other findings documented but not filed per template: (MEDIUM Cat 1 cross-module) `method` (resample) vs `resampling` (reproject/merge) -- same conceptual parameter, different name, cross-cutting rename, needs design issue. (LOW Cat 1 cross-cutting) first-arg `agg` (resample/slope/aspect/...) vs `raster` (reproject/rasterize/polygonize/sieve) -- library-wide drift, not per-module. (LOW Cat 5) ALL_METHODS imported by tests but not in __all__ (module has no __all__); borderline orphan but used for test parametrisation only. No Cat 2 (returns xr.DataArray as documented). No Cat 4 mutable defaults. resample is exported in xrspatial/__init__.py. cuda-validated: cupy backend smoke-tested with nearest, bilinear, and average on host with CUDA_AVAILABLE=True."
+diff --git a/xrspatial/proximity.py b/xrspatial/proximity.py
+index ba7b25e5..b7a7c1b0 100644
+--- a/xrspatial/proximity.py
++++ b/xrspatial/proximity.py
+@@ -978,10 +978,8 @@ def _kdtree_query_lowest_index(tree, query_pts, p, max_distance):
+ 
+     ``cKDTree.query`` does not promise which of several equidistant targets
+     it returns, so allocation and direction can disagree with the brute-force
+-    and CUDA backends on a tie. Target coordinates are sorted into row-major
+-    (flat-index) order by ``_collect_region_targets`` before the tree is
+-    built -- chunk-by-chunk collection alone does not produce that order
+-    (issue #3090) -- so the lowest target index is the lowest flat index,
++    and CUDA backends on a tie. Target coordinates are stored in row-major
++    (flat-index) order, so the lowest target index is the lowest flat index --
+     the tie-break policy documented on ``allocation``/``direction``.
+ 
+     Query the two nearest targets; wherever they are equidistant, keep the one
+@@ -1056,16 +1054,6 @@ def _target_mask(chunk_data, target_values):
+     return np.isin(chunk_data, target_values) & np.isfinite(chunk_data)
+ 
+ 
+-def _global_flat_indices(iy, ix, rows, cols, y_offsets, x_offsets, width):
+-    """Global flat (row-major) pixel indices of chunk-local target positions.
+-
+-    The flat index is the tie-break key documented on
+-    ``allocation``/``direction``: among equidistant targets, the lowest one
+-    wins (see ``_kdtree_query_lowest_index``).
+-    """
+-    return (y_offsets[iy] + rows) * width + (x_offsets[ix] + cols)
+-
+-
+ def _stream_target_counts(raster, target_values, y_coords, x_coords,
+                           chunks_y, chunks_x):
+     """Stream all dask chunks, counting targets per chunk.
+@@ -1079,17 +1067,12 @@ def _stream_target_counts(raster, target_values, y_coords, x_coords,
+     total_targets : int
+     coords_cache : dict  (iy, ix) -> ndarray shape (N, 2)
+     values_cache : dict  (iy, ix) -> ndarray shape (N,), dtype float32
+-    flat_cache : dict  (iy, ix) -> ndarray shape (N,), dtype int64
+-        Global flat (row-major) pixel index of each cached target. Used by
+-        ``_collect_region_targets`` to restore row-major target order so the
+-        documented lowest-flat-index tie-break holds across chunkings.
+     """
+     n_tile_y = len(chunks_y)
+     n_tile_x = len(chunks_x)
+     target_counts = np.zeros((n_tile_y, n_tile_x), dtype=np.int64)
+     coords_cache = {}
+     values_cache = {}
+-    flat_cache = {}
+     cache_bytes = 0
+     budget = int(0.25 * _available_memory_bytes())
+ 
+@@ -1097,7 +1080,6 @@ def _stream_target_counts(raster, target_values, y_coords, x_coords,
+     np.cumsum(chunks_y, out=y_offsets[1:])
+     x_offsets = np.zeros(n_tile_x + 1, dtype=np.int64)
+     np.cumsum(chunks_x, out=x_offsets[1:])
+-    width = int(x_offsets[-1])
+ 
+     for iy in range(n_tile_y):
+         # Compute one chunk-row at a time so the scheduler can read the
+@@ -1119,17 +1101,14 @@ def _stream_target_counts(raster, target_values, y_coords, x_coords,
+                     x_coords[x_offsets[ix] + cols],
+                 ])
+                 vals = chunk_data[rows, cols].astype(np.float32)
+-                flat = _global_flat_indices(
+-                    iy, ix, rows, cols, y_offsets, x_offsets, width)
+-                entry_bytes = coords.nbytes + vals.nbytes + flat.nbytes
++                entry_bytes = coords.nbytes + vals.nbytes
+                 if cache_bytes + entry_bytes <= budget:
+                     coords_cache[(iy, ix)] = coords
+                     values_cache[(iy, ix)] = vals
+-                    flat_cache[(iy, ix)] = flat
+                     cache_bytes += entry_bytes
+ 
+     total_targets = int(target_counts.sum())
+-    return target_counts, total_targets, coords_cache, values_cache, flat_cache
++    return target_counts, total_targets, coords_cache, values_cache
+ 
+ 
+ def _chunk_offsets(chunks):
+@@ -1143,25 +1122,14 @@ def _collect_region_targets(raster, jy_lo, jy_hi, jx_lo, jx_hi,
+                             target_values, target_counts,
+                             y_coords, x_coords,
+                             y_offsets, x_offsets,
+-                            coords_cache, values_cache, flat_cache):
++                            coords_cache, values_cache):
+     """Collect target (y, x) coords and pixel values from chunks.
+ 
+     Uses cache where available, re-reads uncached chunks via .compute().
+     Returns (coords ndarray (N, 2), vals ndarray (N,)) or (None, None).
+-
+-    The returned targets are sorted by global flat (row-major) pixel index.
+-    Chunks are visited chunk-row by chunk-column, so with more than one chunk
+-    column the concatenation order is chunk-major, not row-major. The KDTree
+-    tie-break in ``_kdtree_query_lowest_index`` keeps the lowest *tree* index
+-    on a tie, which only matches the documented lowest-flat-index policy of
+-    ``allocation``/``direction`` if the tree's target order is global
+-    row-major. Sorting here restores that order for both the global and the
+-    tiled KDTree paths.
+     """
+     coord_parts = []
+     val_parts = []
+-    flat_parts = []
+-    width = int(x_offsets[-1])
+     for iy in range(jy_lo, jy_hi):
+         for ix in range(jx_lo, jx_hi):
+             if target_counts[iy, ix] == 0:
+@@ -1169,7 +1137,6 @@ def _collect_region_targets(raster, jy_lo, jy_hi, jx_lo, jx_hi,
+             if (iy, ix) in coords_cache:
+                 coord_parts.append(coords_cache[(iy, ix)])
+                 val_parts.append(values_cache[(iy, ix)])
+-                flat_parts.append(flat_cache[(iy, ix)])
+             else:
+                 chunk_data = raster.data.blocks[iy, ix].compute()
+                 mask = _target_mask(chunk_data, target_values)
+@@ -1183,15 +1150,9 @@ def _collect_region_targets(raster, jy_lo, jy_hi, jx_lo, jx_hi,
+                     val_parts.append(
+                         chunk_data[rows, cols].astype(np.float32)
+                     )
+-                    flat_parts.append(_global_flat_indices(
+-                        iy, ix, rows, cols, y_offsets, x_offsets, width))
+     if not coord_parts:
+         return None, None
+-    coords = np.concatenate(coord_parts)
+-    vals = np.concatenate(val_parts)
+-    flat = np.concatenate(flat_parts)
+-    order = np.argsort(flat)
+-    return coords[order], vals[order]
++    return np.concatenate(coord_parts), np.concatenate(val_parts)
+ 
+ 
+ def _min_boundary_distance(iy, ix, y_coords, x_coords,
+@@ -1246,7 +1207,7 @@ def _min_boundary_distance(iy, ix, y_coords, x_coords,
+ def _tiled_chunk_query(raster, iy, ix, y_coords, x_coords,
+                        y_offsets, x_offsets,
+                        target_values, target_counts,
+-                       coords_cache, values_cache, flat_cache,
++                       coords_cache, values_cache,
+                        max_distance, p,
+                        n_tile_y, n_tile_x, process_mode):
+     """Expanding-ring local KDTree for one output chunk.
+@@ -1276,7 +1237,7 @@ def _tiled_chunk_query(raster, iy, ix, y_coords, x_coords,
+             raster, jy_lo, jy_hi, jx_lo, jx_hi,
+             target_values, target_counts,
+             y_coords, x_coords, y_offsets, x_offsets,
+-            coords_cache, values_cache, flat_cache,
++            coords_cache, values_cache,
+         )
+ 
+         if target_coords is None:
+@@ -1332,7 +1293,7 @@ def _tiled_chunk_query(raster, iy, ix, y_coords, x_coords,
+ 
+ def _build_tiled_kdtree(raster, y_coords, x_coords, target_values,
+                         max_distance, p, target_counts,
+-                        coords_cache, values_cache, flat_cache,
++                        coords_cache, values_cache,
+                         chunks_y, chunks_x, process_mode):
+     """Tiled (eager) KDTree query — memory-safe fallback."""
+     H, W = raster.shape
+@@ -1364,7 +1325,7 @@ def _build_tiled_kdtree(raster, y_coords, x_coords, target_values,
+                 raster, iy, ix, y_coords, x_coords,
+                 y_offsets, x_offsets,
+                 target_values, target_counts,
+-                coords_cache, values_cache, flat_cache,
++                coords_cache, values_cache,
+                 max_distance, p, n_tile_y, n_tile_x, process_mode,
+             )
+             r0 = int(y_offsets[iy])
+@@ -1378,7 +1339,7 @@ def _build_tiled_kdtree(raster, y_coords, x_coords, target_values,
+ 
+ def _build_global_kdtree(raster, y_coords, x_coords, target_values,
+                          max_distance, p, target_counts,
+-                         coords_cache, values_cache, flat_cache,
++                         coords_cache, values_cache,
+                          chunks_y, chunks_x, process_mode):
+     """Global KDTree query — fast, lazy via da.map_blocks."""
+     n_tile_y = len(chunks_y)
+@@ -1390,7 +1351,7 @@ def _build_global_kdtree(raster, y_coords, x_coords, target_values,
+         raster, 0, n_tile_y, 0, n_tile_x,
+         target_values, target_counts,
+         y_coords, x_coords, y_offsets, x_offsets,
+-        coords_cache, values_cache, flat_cache,
++        coords_cache, values_cache,
+     )
+ 
+     tree = cKDTree(target_coords)
+@@ -1429,7 +1390,7 @@ def _process_dask_kdtree(raster, x_coords, y_coords,
+     chunks_y, chunks_x = raster.data.chunks
+ 
+     # Phase 0: streaming count pass
+-    target_counts, total_targets, coords_cache, values_cache, flat_cache = \
++    target_counts, total_targets, coords_cache, values_cache = \
+         _stream_target_counts(
+             raster, target_values, y_coords, x_coords, chunks_y, chunks_x,
+         )
+@@ -1446,14 +1407,14 @@ def _process_dask_kdtree(raster, x_coords, y_coords,
+         return _build_global_kdtree(
+             raster, y_coords, x_coords, target_values,
+             max_distance, p, target_counts,
+-            coords_cache, values_cache, flat_cache,
++            coords_cache, values_cache,
+             chunks_y, chunks_x, process_mode,
+         )
+     else:
+         return _build_tiled_kdtree(
+             raster, y_coords, x_coords, target_values,
+             max_distance, p, target_counts,
+-            coords_cache, values_cache, flat_cache,
++            coords_cache, values_cache,
+             chunks_y, chunks_x, process_mode,
+         )
+ 
+diff --git a/xrspatial/tests/test_proximity.py b/xrspatial/tests/test_proximity.py
+index d2cbff81..9ec67041 100644
+--- a/xrspatial/tests/test_proximity.py
++++ b/xrspatial/tests/test_proximity.py
+@@ -620,56 +620,6 @@ def test_direction_tie_break_matches_numpy(backend, tie_break_raster_data):
+     general_output_checks(raster, result, expected)
+ 
+ 
+-@pytest.fixture
+-def tie_break_chunk_column_data():
+-    # Regression data for issue #3090. Pixel (2, 3) is equidistant to target
+-    # 2 at (1, 3) (flat index 8) and target 3 at (2, 2) (flat index 12), so
+-    # the documented lowest-flat-index policy picks 2. With chunks=(5, 3) the
+-    # raster splits into two chunk columns and target 3 sits in chunk (0, 0)
+-    # while target 2 sits in chunk (0, 1). The dask KDTree path used to
+-    # collect targets chunk by chunk, so its tree order was [1, 3, 2] instead
+-    # of the global row-major [1, 2, 3] and the tie resolved to 3.
+-    return np.array([[0., 0., 0., 0., 0.],
+-                     [0., 1., 0., 2., 0.],
+-                     [0., 0., 3., 0., 0.],
+-                     [0., 0., 0., 0., 0.],
+-                     [0., 0., 0., 0., 0.]], dtype=np.float64)
+-
+-
+-@pytest.mark.parametrize("backend", ['dask+numpy', 'dask+cupy'])
+-def test_allocation_tie_break_chunk_column_order(
+-        backend, tie_break_chunk_column_data):
+-    numpy_raster = create_test_raster(
+-        tie_break_chunk_column_data, backend='numpy', dims=['lat', 'lon'],
+-    )
+-    expected = allocation(numpy_raster, x='lon', y='lat').data
+-    # The tied pixel must go to target 2 (lowest flat index).
+-    assert expected[2, 3] == 2.0
+-
+-    raster = create_test_raster(
+-        tie_break_chunk_column_data, backend=backend, dims=['lat', 'lon'],
+-        chunks=(5, 3),
+-    )
+-    result = allocation(raster, x='lon', y='lat')
+-    general_output_checks(raster, result, expected, verify_dtype=True)
+-
+-
+-@pytest.mark.parametrize("backend", ['dask+numpy', 'dask+cupy'])
+-def test_direction_tie_break_chunk_column_order(
+-        backend, tie_break_chunk_column_data):
+-    numpy_raster = create_test_raster(
+-        tie_break_chunk_column_data, backend='numpy', dims=['lat', 'lon'],
+-    )
+-    expected = direction(numpy_raster, x='lon', y='lat').data
+-
+-    raster = create_test_raster(
+-        tie_break_chunk_column_data, backend=backend, dims=['lat', 'lon'],
+-        chunks=(5, 3),
+-    )
+-    result = direction(raster, x='lon', y='lat')
+-    general_output_checks(raster, result, expected)
+-
+-
+ @pytest.mark.skipif(da is None, reason="dask is not installed")
+ def test_proximity_dask_kdtree_no_targets():
+     """No target pixels found → result is all NaN."""
+@@ -873,48 +823,6 @@ def test_allocation_tie_break_tiled_path():
+     np.testing.assert_array_equal(result.values, expected)
+ 
+ 
+-@pytest.mark.skipif(da is None, reason="dask is not installed")
+-def test_allocation_tie_break_tiled_path_chunk_column_order():
+-    """The tiled KDTree fallback ties row-major across chunk columns (#3090).
+-
+-    Same geometry as test_allocation_tie_break_chunk_column_order: target 3
+-    is collected from an earlier chunk than target 2, so a chunk-major tree
+-    order would flip the tie at pixel (2, 3) to 3.
+-    """
+-    data = np.array([[0., 0., 0., 0., 0.],
+-                     [0., 1., 0., 2., 0.],
+-                     [0., 0., 3., 0., 0.],
+-                     [0., 0., 0., 0., 0.],
+-                     [0., 0., 0., 0., 0.]], dtype=np.float64)
+-    _lon = np.arange(5, dtype=np.float64)
+-    _lat = np.arange(5, dtype=np.float64)[::-1]
+-    raster = xr.DataArray(data, dims=['lat', 'lon'])
+-    raster['lon'] = _lon
+-    raster['lat'] = _lat
+-
+-    numpy_expected = allocation(raster.copy(), x='lon', y='lat').values
+-    assert numpy_expected[2, 3] == 2.0
+-
+-    raster.data = da.from_array(data, chunks=(5, 3))
+-
+-    # Force the eager tiled KDTree path (see _force_tiled_proximity for the
+-    # counter semantics): tiny cache budget, force the tiled decision, then a
+-    # large value so the result-size guard passes.
+-    call_count = [0]
+-
+-    def _small_then_large():
+-        call_count[0] += 1
+-        if call_count[0] <= 2:
+-            return 1
+-        return 10 * 1024 ** 3
+-
+-    with patch('xrspatial.proximity._available_memory_bytes',
+-               side_effect=_small_then_large):
+-        result = allocation(raster, x='lon', y='lat')
+-
+-    np.testing.assert_array_equal(result.values, numpy_expected)
+-
+-
+ @pytest.mark.skipif(da is None, reason="dask is not installed")
+ def test_proximity_dask_kdtree_tiled_single_target():
+     """One target in a corner, many chunks → exercises max ring expansion."""
+@@ -1080,10 +988,9 @@ def test_stream_target_counts_matches_sequential_baseline():
+     target_values = np.asarray([])
+     chunks_y, chunks_x = raster.data.chunks
+ 
+-    counts, total, coords_cache, values_cache, flat_cache = \
+-        _stream_target_counts(
+-            raster, target_values, _lat, _lon, chunks_y, chunks_x,
+-        )
++    counts, total, coords_cache, values_cache = _stream_target_counts(
++        raster, target_values, _lat, _lon, chunks_y, chunks_x,
++    )
+ 
+     # Sequential reference (the pre-fix behaviour).
+     n_tile_y, n_tile_x = len(chunks_y), len(chunks_x)
+@@ -1120,10 +1027,6 @@ def test_stream_target_counts_matches_sequential_baseline():
+                 values_cache[(iy, ix)],
+                 cd[rows, cols].astype(np.float32),
+             )
+-            np.testing.assert_array_equal(
+-                flat_cache[(iy, ix)],
+-                (y_off[iy] + rows) * width + (x_off[ix] + cols),
+-            )
+ 
+ 
+ # ---------------------------------------------------------------------------
