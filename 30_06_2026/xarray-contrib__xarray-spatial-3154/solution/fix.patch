@@ -1,0 +1,25 @@
+diff --git a/xrspatial/mcda/constrain.py b/xrspatial/mcda/constrain.py
+index 59275ffe..b77768a1 100644
+--- a/xrspatial/mcda/constrain.py
++++ b/xrspatial/mcda/constrain.py
+@@ -30,7 +30,8 @@ def constrain(
+     Returns
+     -------
+     xr.DataArray
+-        Constrained suitability surface.
++        Constrained suitability surface. Keeps the input's dims,
++        coords, and attrs (``res``, ``crs``, ``nodatavals``, ...).
+     """
+     if name is None:
+         name = suitability.name
+@@ -39,5 +40,10 @@ def constrain(
+     for mask in exclude:
+         result = xr.where(mask, fill, result)
+ 
++    # xr.where takes attrs from its first value argument (the scalar
++    # ``fill``), which strips res/crs/nodatavals from the output.
++    # Restore the input's attrs so the constrained surface stays
++    # georeferenced (#3147).
++    result.attrs = dict(suitability.attrs)
+     result.name = name
+     return result
