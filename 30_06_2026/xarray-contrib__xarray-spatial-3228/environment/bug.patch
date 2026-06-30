@@ -1,0 +1,145 @@
+diff --git a/xrspatial/focal.py b/xrspatial/focal.py
+index 70b252bf..370adcc9 100644
+--- a/xrspatial/focal.py
++++ b/xrspatial/focal.py
+@@ -58,7 +58,7 @@ def _validate_binary_kernel(kernel, func_name):
+         )
+ 
+ 
+-def _check_kernel_vs_raster_memory(kernel, rows, cols, func_name, chunks=None):
++def _check_kernel_vs_raster_memory(kernel, rows, cols, func_name):
+     """Reject kernel + raster combinations that would OOM the host.
+ 
+     The focal public APIs (apply, focal_stats, hotspots) accept any 2-D
+@@ -77,28 +77,11 @@ def _check_kernel_vs_raster_memory(kernel, rows, cols, func_name, chunks=None):
+     own; the padded raster is larger).  Budget 4 bytes per kernel cell
+     (float32 internal dtype) plus the padded raster footprint, and raise
+     ``MemoryError`` when the total exceeds half of available memory.
+-
+-    Dask-backed input never materializes the padded full raster: each
+-    ``map_overlap`` task allocates one chunk plus the overlap halo.  When
+-    *chunks* is given (the dask ``.chunks`` tuple), the padded footprint
+-    is budgeted from the largest chunk instead of the full raster shape,
+-    so chunked rasters far larger than host memory pass while an
+-    oversized kernel is still rejected.
+     """
+     krows, kcols = kernel.shape
+     pad_h = krows // 2
+     pad_w = kcols // 2
+ 
+-    if chunks is not None:
+-        # Per-task footprint for the dask paths: largest chunk + halo.
+-        # The scheduler runs one task per worker concurrently, so true peak
+-        # is ~num_workers * padded_chunk; the 0.5-of-available headroom
+-        # below absorbs that for sane chunk sizes. Unknown chunk sizes
+-        # (NaN, e.g. after boolean indexing) make the comparison False and
+-        # fall through to dask's own map_overlap error.
+-        rows = max(chunks[-2])
+-        cols = max(chunks[-1])
+-
+     # 4 bytes per cell -- focal internals cast to float32.
+     kernel_bytes = krows * kcols * 4
+     padded_rows = rows + 2 * pad_h
+@@ -109,11 +92,10 @@ def _check_kernel_vs_raster_memory(kernel, rows, cols, func_name, chunks=None):
+     available = _available_memory_bytes()
+ 
+     if required > 0.5 * available:
+-        unit = 'chunk' if chunks is not None else 'raster'
+         raise MemoryError(
+             f"{func_name}(): kernel of shape {kernel.shape} on a "
+-            f"{rows}x{cols} {unit} would need ~{required / 1e9:.1f} GB "
+-            f"(kernel + padded {unit}), but only "
++            f"{rows}x{cols} raster would need ~{required / 1e9:.1f} GB "
++            f"(kernel + padded raster), but only "
+             f"{available / 1e9:.1f} GB is available. "
+             f"Use a smaller kernel or a coarser cellsize."
+         )
+@@ -718,8 +700,7 @@ def apply(agg=None, kernel=None, func=_calc_mean, name='focal_apply',
+     _validate_boundary(boundary)
+ 
+     rows, cols = agg.shape[-2], agg.shape[-1]
+-    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='apply',
+-                                   chunks=getattr(agg.data, 'chunks', None))
++    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='apply')
+ 
+     # apply kernel to raster values
+     # if agg is a numpy or dask with numpy backed data array,
+@@ -1354,8 +1335,7 @@ def focal_stats(agg,
+     _validate_boundary(boundary)
+ 
+     rows, cols = agg.shape[-2], agg.shape[-1]
+-    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='focal_stats',
+-                                   chunks=getattr(agg.data, 'chunks', None))
++    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='focal_stats')
+ 
+     mapper = ArrayTypeFunctionMapping(
+         numpy_func=partial(_focal_stats_cpu, boundary=boundary),
+@@ -1742,8 +1722,7 @@ def hotspots(agg=None, kernel=None, name='hotspots', boundary='nan', *,
+         )
+ 
+     rows, cols = agg.shape[-2], agg.shape[-1]
+-    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='hotspots',
+-                                   chunks=getattr(agg.data, 'chunks', None))
++    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='hotspots')
+ 
+     mapper = ArrayTypeFunctionMapping(
+         numpy_func=partial(_hotspots_numpy, boundary=boundary),
+diff --git a/xrspatial/tests/test_focal.py b/xrspatial/tests/test_focal.py
+index f10e7791..6e579482 100644
+--- a/xrspatial/tests/test_focal.py
++++ b/xrspatial/tests/test_focal.py
+@@ -245,54 +245,6 @@ def test_hotspots_rejects_oversize_kernel_1284():
+             hotspots(raster, kernel)
+ 
+ 
+-@dask_array_available
+-@pytest.mark.parametrize("entry_point", [
+-    lambda agg, kernel: apply(agg, kernel),
+-    lambda agg, kernel: focal_stats(agg, kernel, stats_funcs=['mean']),
+-    lambda agg, kernel: hotspots(agg, kernel),
+-])
+-def test_memory_guard_accepts_large_dask_raster_3218(entry_point):
+-    # Regression for #3218: the guard budgeted the padded FULL raster on
+-    # every backend, so a dask raster bigger than ~half host RAM was
+-    # rejected at graph-build time even though map_overlap only ever
+-    # materializes one padded chunk per task. With 1 MB "available", the
+-    # full padded raster (~4 MB) would trip the old guard; the padded
+-    # 100x100 chunk (~42 KB) must pass.
+-    data = da.zeros((1000, 1000), chunks=(100, 100), dtype=np.float32)
+-    agg = xr.DataArray(data, dims=['y', 'x'])
+-    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.float32)
+-    with patch('xrspatial.focal._available_memory_bytes',
+-               return_value=1_000_000):
+-        result = entry_point(agg, kernel)
+-    assert isinstance(result.data, da.Array)
+-
+-
+-def test_memory_guard_numpy_raster_still_rejected_3218():
+-    # The numpy path really does allocate full-size arrays, so the
+-    # full-raster budget must keep firing for in-memory input.
+-    agg = xr.DataArray(np.zeros((1000, 1000), dtype=np.float32),
+-                       dims=['y', 'x'])
+-    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.float32)
+-    with patch('xrspatial.focal._available_memory_bytes',
+-               return_value=1_000_000):
+-        with pytest.raises(MemoryError, match="padded raster"):
+-            apply(agg, kernel)
+-
+-
+-@dask_array_available
+-def test_memory_guard_dask_oversize_kernel_still_rejected_3218():
+-    # An oversized kernel must still be rejected on the dask path: the
+-    # kernel itself plus one padded chunk blows the per-task budget. The
+-    # message reports the chunk, not the raster.
+-    data = da.zeros((1000, 1000), chunks=(100, 100), dtype=np.float32)
+-    agg = xr.DataArray(data, dims=['y', 'x'])
+-    kernel = np.ones((301, 301), dtype=np.float32)
+-    with patch('xrspatial.focal._available_memory_bytes',
+-               return_value=1_000_000):
+-        with pytest.raises(MemoryError, match="padded chunk"):
+-            apply(agg, kernel)
+-
+-
+ def test_apply_small_kernel_not_rejected_1284():
+     # The guard must not fire for realistic kernel + raster combos.
+     raster = xr.DataArray(np.ones((50, 50), dtype=np.float32))
