@@ -1,0 +1,30 @@
+diff --git a/openhands-tools/openhands/tools/terminal/terminal/subprocess_terminal.py b/openhands-tools/openhands/tools/terminal/terminal/subprocess_terminal.py
+index efa9c0dc..90309034 100644
+--- a/openhands-tools/openhands/tools/terminal/terminal/subprocess_terminal.py
++++ b/openhands-tools/openhands/tools/terminal/terminal/subprocess_terminal.py
+@@ -137,6 +137,10 @@ class SubprocessTerminal(TerminalInterface):
+ 
+         # Inherit environment variables from the parent process
+         env = sanitized_env()
++        # Disable interactive pagers (git, man, systemctl, ...) so commands that
++        # auto-launch `less` on a TTY don't capture the PTY and wedge the session.
++        env.setdefault("GIT_PAGER", "cat")
++        env.setdefault("PAGER", "cat")
+         env["PS1"] = self.PS1
+         env["PS2"] = ""
+         env["TERM"] = "xterm-256color"
+diff --git a/openhands-tools/openhands/tools/terminal/terminal/tmux_terminal.py b/openhands-tools/openhands/tools/terminal/terminal/tmux_terminal.py
+index ac443f77..59463a72 100644
+--- a/openhands-tools/openhands/tools/terminal/terminal/tmux_terminal.py
++++ b/openhands-tools/openhands/tools/terminal/terminal/tmux_terminal.py
+@@ -67,6 +67,10 @@ class TmuxTerminal(TerminalInterface):
+             return
+ 
+         env = sanitized_env()
++        # Disable interactive pagers (git, man, systemctl, ...) so commands that
++        # auto-launch `less` on a TTY don't capture the pane and wedge the session.
++        env.setdefault("GIT_PAGER", "cat")
++        env.setdefault("PAGER", "cat")
+         # Use a dedicated socket to isolate OpenHands sessions from the user's tmux
+         self.server = libtmux.Server(socket_name=TMUX_SOCKET_NAME, environment=env)
+         _shell_command = "/bin/bash"
