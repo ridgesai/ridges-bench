@@ -1,0 +1,230 @@
+diff --git a/xrspatial/reproject/__init__.py b/xrspatial/reproject/__init__.py
+index a0475d8d..5e7553e0 100644
+--- a/xrspatial/reproject/__init__.py
++++ b/xrspatial/reproject/__init__.py
+@@ -394,21 +394,10 @@ def _reproject_chunk_numpy(
+     else:
+         _empty_shape = chunk_shape
+ 
+-    # Empty-chunk fills must match the dtype the data path returns and the
+-    # dask template advertises (#3096): integer sources round-trip back to
+-    # their dtype, floats stay float64. Without this, a single no-overlap
+-    # chunk promoted the whole assembled dask output to float64. The
+-    # resolved nodata is guaranteed representable for integer rasters
+-    # (#2185/#2572).
+-    if np.issubdtype(source_data.dtype, np.integer):
+-        _empty_dtype = source_data.dtype
+-    else:
+-        _empty_dtype = np.float64
+-
+     if not np.isfinite(r_min) or not np.isfinite(r_max):
+-        return np.full(_empty_shape, nodata, dtype=_empty_dtype)
++        return np.full(_empty_shape, nodata, dtype=np.float64)
+     if not np.isfinite(c_min) or not np.isfinite(c_max):
+-        return np.full(_empty_shape, nodata, dtype=_empty_dtype)
++        return np.full(_empty_shape, nodata, dtype=np.float64)
+ 
+     r_min = int(np.floor(r_min)) - 2
+     r_max = int(np.ceil(r_max)) + 3
+@@ -417,7 +406,7 @@ def _reproject_chunk_numpy(
+ 
+     # Check overlap
+     if r_min >= src_h or r_max <= 0 or c_min >= src_w or c_max <= 0:
+-        return np.full(_empty_shape, nodata, dtype=_empty_dtype)
++        return np.full(_empty_shape, nodata, dtype=np.float64)
+ 
+     # Clip to source bounds
+     r_min_clip = max(0, r_min)
+@@ -430,7 +419,7 @@ def _reproject_chunk_numpy(
+     _MAX_WINDOW_PIXELS = 64 * 1024 * 1024  # 64 Mpix (~512 MB for float64)
+     win_pixels = (r_max_clip - r_min_clip) * (c_max_clip - c_min_clip)
+     if win_pixels > _MAX_WINDOW_PIXELS:
+-        return np.full(_empty_shape, nodata, dtype=_empty_dtype)
++        return np.full(_empty_shape, nodata, dtype=np.float64)
+ 
+     # Extract source window
+     window = source_data[r_min_clip:r_max_clip, c_min_clip:c_max_clip]
+@@ -508,13 +497,6 @@ def _reproject_chunk_cupy(
+     else:
+         _empty_shape = chunk_shape
+ 
+-    # Empty-chunk fills must match the dtype the data path returns (#3096);
+-    # see the matching block in _reproject_chunk_numpy.
+-    if np.issubdtype(source_data.dtype, np.integer):
+-        _empty_dtype = source_data.dtype
+-    else:
+-        _empty_dtype = np.float64
+-
+     # Try CUDA transform first (keeps coordinates on-device).
+     # transform_precision == 0 forces the exact pyproj path, so skip CUDA.
+     cuda_result = None
+@@ -555,7 +537,7 @@ def _reproject_chunk_cupy(
+         )
+         if not (np.isfinite(r_min_val) and np.isfinite(r_max_val)
+                 and np.isfinite(c_min_val) and np.isfinite(c_max_val)):
+-            return cp.full(_empty_shape, nodata, dtype=_empty_dtype)
++            return cp.full(_empty_shape, nodata, dtype=cp.float64)
+         r_min = int(np.floor(r_min_val)) - 2
+         r_max = int(np.ceil(r_max_val)) + 3
+         c_min = int(np.floor(c_min_val)) - 2
+@@ -592,16 +574,16 @@ def _reproject_chunk_cupy(
+         c_min = np.nanmin(src_col_px)
+         c_max = np.nanmax(src_col_px)
+         if not np.isfinite(r_min) or not np.isfinite(r_max):
+-            return cp.full(_empty_shape, nodata, dtype=_empty_dtype)
++            return cp.full(_empty_shape, nodata, dtype=cp.float64)
+         if not np.isfinite(c_min) or not np.isfinite(c_max):
+-            return cp.full(_empty_shape, nodata, dtype=_empty_dtype)
++            return cp.full(_empty_shape, nodata, dtype=cp.float64)
+         r_min = int(np.floor(r_min)) - 2
+         r_max = int(np.ceil(r_max)) + 3
+         c_min = int(np.floor(c_min)) - 2
+         c_max = int(np.ceil(c_max)) + 3
+ 
+     if r_min >= src_h or r_max <= 0 or c_min >= src_w or c_max <= 0:
+-        return cp.full(_empty_shape, nodata, dtype=_empty_dtype)
++        return cp.full(_empty_shape, nodata, dtype=cp.float64)
+ 
+     r_min_clip = max(0, r_min)
+     r_max_clip = min(src_h, r_max)
+@@ -613,7 +595,7 @@ def _reproject_chunk_cupy(
+     _MAX_WINDOW_PIXELS = 64 * 1024 * 1024  # 64 Mpix (~512 MB for float64)
+     win_pixels = (r_max_clip - r_min_clip) * (c_max_clip - c_min_clip)
+     if win_pixels > _MAX_WINDOW_PIXELS:
+-        return cp.full(_empty_shape, nodata, dtype=_empty_dtype)
++        return cp.full(_empty_shape, nodata, dtype=cp.float64)
+ 
+     window = source_data[r_min_clip:r_max_clip, c_min_clip:c_max_clip]
+     if hasattr(window, 'compute'):
+@@ -1988,21 +1970,15 @@ def _reproject_block_adapter(
+ 
+     is_3d = n_bands is not None
+ 
+-    # Skip chunks that don't overlap the source footprint. The fill dtype
+-    # must match the template: integer sources advertise their own dtype,
+-    # so a float64 fill here would promote the assembled output (#3096).
++    # Skip chunks that don't overlap the source footprint
+     if src_footprint_tgt is not None and not _bounds_overlap(cb, src_footprint_tgt):
+-        if np.issubdtype(source_data.dtype, np.integer):
+-            empty_dtype = source_data.dtype
+-        else:
+-            empty_dtype = np.float64
+-        empty_shape = (*chunk_shape, n_bands) if is_3d else chunk_shape
+-        if is_cupy:
+-            # Match the data chunks (and the 3-D branch): dask+cupy
+-            # blocks should be cupy arrays even when empty.
+-            import cupy as cp
+-            return cp.full(empty_shape, nodata, dtype=empty_dtype)
+-        return np.full(empty_shape, nodata, dtype=empty_dtype)
++        if is_3d:
++            empty_shape = (*chunk_shape, n_bands)
++            if is_cupy:
++                import cupy as cp
++                return cp.full(empty_shape, nodata, dtype=cp.float64)
++            return np.full(empty_shape, nodata, dtype=np.float64)
++        return np.full(chunk_shape, nodata, dtype=np.float64)
+ 
+     chunk_fn = _reproject_chunk_cupy if is_cupy else _reproject_chunk_numpy
+     return chunk_fn(
+diff --git a/xrspatial/tests/test_reproject.py b/xrspatial/tests/test_reproject.py
+index fc2b8de5..7a26dd31 100644
+--- a/xrspatial/tests/test_reproject.py
++++ b/xrspatial/tests/test_reproject.py
+@@ -4574,97 +4574,6 @@ class TestDaskCupyDtypeParity:
+         assert r_np.dtype == r_cp.dtype == np.int16
+ 
+ 
+-class TestEmptyChunkDtype:
+-    """Empty / no-overlap chunks must keep the integer source dtype (#3096).
+-
+-    The empty-chunk fills in the chunk workers and the footprint-skip
+-    path in ``_reproject_block_adapter`` were hardcoded to float64. With
+-    an integer source, one no-overlap chunk was enough to promote the
+-    whole computed dask array to float64 while the lazy array (and the
+-    eager backend) advertised the integer dtype.
+-    """
+-
+-    # Output bounds in EPSG:3857 that are far larger than the projected
+-    # footprint of the source raster below, so corner chunks have no
+-    # source overlap and take the empty-chunk path.
+-    _WIDE_BOUNDS = (-2_000_000.0, 5_000_000.0, 2_000_000.0, 9_000_000.0)
+-
+-    def _make_int16_data(self, n=200):
+-        rng = np.random.default_rng(3096)
+-        return (rng.random((n, n)) * 1000).astype(np.int16)
+-
+-    def _coords(self, n=200):
+-        return {'y': np.linspace(52.0, 51.0, n), 'x': np.linspace(-2.0, -1.0, n)}
+-
+-    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+-    def test_dask_int16_empty_chunks_keep_dtype(self):
+-        from xrspatial.reproject import reproject
+-        data = self._make_int16_data()
+-        raster = xr.DataArray(
+-            da.from_array(data, chunks=(64, 64)),
+-            dims=['y', 'x'], coords=self._coords(),
+-            attrs={'crs': 'EPSG:4326', 'nodata': -32768},
+-        )
+-        result = reproject(raster, 'EPSG:3857', bounds=self._WIDE_BOUNDS,
+-                           resolution=20000, chunk_size=64)
+-        assert result.dtype == np.int16
+-        computed = result.compute()
+-        assert computed.dtype == np.int16
+-        # The no-overlap corners must hold the integer sentinel.
+-        assert computed.values[0, 0] == -32768
+-        # Some chunk must contain real data, or this test exercises
+-        # nothing but empty fills.
+-        assert (computed.values != -32768).any()
+-
+-    def test_numpy_int16_no_overlap_output_keeps_dtype(self):
+-        # Eager backend, output grid entirely outside the source
+-        # footprint: the single chunk takes the no-overlap early return.
+-        from xrspatial.reproject import reproject
+-        data = self._make_int16_data(32)
+-        raster = xr.DataArray(
+-            data, dims=['y', 'x'], coords=self._coords(32),
+-            attrs={'crs': 'EPSG:4326', 'nodata': -32768},
+-        )
+-        result = reproject(raster, 'EPSG:3857',
+-                           bounds=(5_000_000.0, 5_000_000.0,
+-                                   6_000_000.0, 6_000_000.0),
+-                           resolution=20000)
+-        assert result.dtype == np.int16
+-        assert (result.values == -32768).all()
+-
+-    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+-    def test_dask_float_empty_chunks_stay_float64(self):
+-        # Float sources keep returning float64 empty chunks (NaN fill).
+-        from xrspatial.reproject import reproject
+-        data = np.random.RandomState(0).rand(200, 200)
+-        raster = xr.DataArray(
+-            da.from_array(data, chunks=(64, 64)),
+-            dims=['y', 'x'], coords=self._coords(),
+-            attrs={'crs': 'EPSG:4326'},
+-        )
+-        result = reproject(raster, 'EPSG:3857', bounds=self._WIDE_BOUNDS,
+-                           resolution=20000, chunk_size=64)
+-        assert result.dtype == np.float64
+-        computed = result.compute()
+-        assert computed.dtype == np.float64
+-        assert np.isnan(computed.values[0, 0])
+-
+-    @pytest.mark.skipif(not (HAS_DASK and HAS_CUPY),
+-                        reason="dask + cupy required")
+-    def test_dask_cupy_int16_empty_chunks_keep_dtype(self):
+-        from xrspatial.reproject import reproject
+-        data = self._make_int16_data()
+-        raster = xr.DataArray(
+-            da.from_array(cp.asarray(data), chunks=(64, 64)),
+-            dims=['y', 'x'], coords=self._coords(),
+-            attrs={'crs': 'EPSG:4326', 'nodata': -32768},
+-        )
+-        result = reproject(raster, 'EPSG:3857', bounds=self._WIDE_BOUNDS,
+-                           resolution=20000, chunk_size=64)
+-        computed = result.compute()
+-        assert computed.dtype == np.int16
+-
+-
+ @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+ class TestMergeDaskParity:
+     """Dask merge should match the eager numpy merge."""
