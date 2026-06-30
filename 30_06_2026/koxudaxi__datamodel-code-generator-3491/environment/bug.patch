@@ -1,0 +1,516 @@
+diff --git a/src/datamodel_code_generator/parser/base.py b/src/datamodel_code_generator/parser/base.py
+index b589558a..77cf192a 100644
+--- a/src/datamodel_code_generator/parser/base.py
++++ b/src/datamodel_code_generator/parser/base.py
+@@ -1093,53 +1093,32 @@ def _get_enum_from_base(discriminator_model: DataModel, field_name: str) -> Enum
+     return None
+ 
+ 
+-def _get_model_module_name(model: DataModel, model_path_to_module_name: Mapping[str, str]) -> str:
+-    return model_path_to_module_name.get(model.path, model.module_name)
+-
+-
+-def _get_data_type_target_full_name(
+-    data_type: DataType,
+-    reference: Reference,
+-    model_path_to_module_name: Mapping[str, str],
+-) -> str:
+-    if (ref_module_name := model_path_to_module_name.get(reference.path)) is None:
+-        ref_module_name = data_type.full_name.rsplit(".", 1)[0] if "." in data_type.full_name else ""
+-    return f"{ref_module_name}.{reference.short_name}" if ref_module_name else reference.short_name
+-
+-
+ def _register_data_type_import(
+     data_type: DataType,
+     model: DataModel,
+     imports: Imports,
+     scoped_model_resolver: ModelResolver,
+-    model_path_to_module_name: dict[str, str] | None = None,
+ ) -> None:
+-    match data_type.reference:
+-        case None:
+-            return
+-        case reference:
+-            pass
+-
+-    model_path_to_module_name = model_path_to_module_name or {}
+-    from_, import_ = full_path = relative(
+-        _get_model_module_name(model, model_path_to_module_name),
+-        _get_data_type_target_full_name(data_type, reference, model_path_to_module_name),
+-    )
+-    if imports.use_exact:
+-        from_, import_ = full_path = exact_import(from_, import_, reference.short_name)
+-    if not (from_ and import_):
++    if data_type.reference is None:
+         return
+-
+-    alias = scoped_model_resolver.add(full_path, import_)
+-    data_type.alias = alias.name if reference.short_name == import_ else f"{alias.name}.{reference.short_name}"
+-    imports.append([
+-        Import(
+-            from_=from_,
+-            import_=import_,
+-            alias=alias.name,
+-            reference_path=reference.path,
++    from_, import_ = full_path = relative(model.module_name, data_type.full_name)
++    if imports.use_exact:
++        from_, import_ = full_path = exact_import(from_, import_, data_type.reference.short_name)
++    if from_ and import_:
++        alias = scoped_model_resolver.add(full_path, import_)
++        data_type.alias = (
++            alias.name
++            if data_type.reference.short_name == import_
++            else f"{alias.name}.{data_type.reference.short_name}"
+         )
+-    ])
++        imports.append([
++            Import(
++                from_=from_,
++                import_=import_,
++                alias=alias.name,
++                reference_path=data_type.reference.path,
++            )
++        ])
+ 
+ 
+ def _resolve_module_file(module_: ModulePath, results: dict[ModulePath, Result]) -> tuple[ModulePath, bool]:
+@@ -1852,30 +1831,33 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
+         for model in models:
+             before_import = model.imports
+             imports.append(before_import)
+-            current_module_name = _get_model_module_name(model, model_path_to_module_name)
++            current_module_name = model_path_to_module_name.get(model.path, model.module_name)
+             # Some imports are derived from type hints, so aliases can affect them.
+             import_sensitive_alias_changed = False
+             for data_type in model.all_data_types:
+-                match data_type.reference:
+-                    case None:
+-                        continue
+-                    case reference if reference.path in model_paths:
+-                        continue
+-                    case reference:
+-                        pass
++                if not data_type.reference or data_type.reference.path in model_paths:
++                    continue
+ 
+-                target_full_name = _get_data_type_target_full_name(data_type, reference, model_path_to_module_name)
++                ref_module_name = model_path_to_module_name.get(
++                    data_type.reference.path,
++                    data_type.full_name.rsplit(".", 1)[0] if "." in data_type.full_name else "",
++                )
++                target_full_name = (
++                    f"{ref_module_name}.{data_type.reference.short_name}"
++                    if ref_module_name
++                    else data_type.reference.short_name
++                )
+ 
+                 if isinstance(data_type, BaseClassDataType):
+                     left, right = relative(current_module_name, target_full_name)
+                     is_ancestor = is_ancestor_package_reference(current_module_name, target_full_name)
+                     from_ = left if is_ancestor else (f"{left}{right}" if left.endswith(".") else f"{left}.{right}")
+-                    import_ = reference.short_name
++                    import_ = data_type.reference.short_name
+                     full_path = from_, import_
+                 else:
+                     from_, import_ = full_path = relative(current_module_name, target_full_name)
+                     if imports.use_exact:
+-                        from_, import_ = full_path = exact_import(from_, import_, reference.short_name)
++                        from_, import_ = full_path = exact_import(from_, import_, data_type.reference.short_name)
+                     import_ = import_.replace("-", "_")
+                     current_module_path = tuple(current_module_name.split(".")) if current_module_name else ()
+                     if (  # pragma: no cover
+@@ -1889,7 +1871,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
+                     ref_module = tuple(target_full_name.split(".")[:-1])
+ 
+                     is_module_class_collision = (
+-                        ref_module and import_ == reference.short_name and ref_module[-1] == import_
++                        ref_module and import_ == data_type.reference.short_name and ref_module[-1] == import_
+                     )
+ 
+                     if (
+@@ -1898,14 +1880,14 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
+                         and (ref_module in internal_modules or is_module_class_collision)
+                     ):
+                         from_ = f"{from_}{import_}" if from_.endswith(".") else f"{from_}.{import_}"
+-                        import_ = reference.short_name
++                        import_ = data_type.reference.short_name
+                         full_path = from_, import_
+ 
+                 alias = scoped_model_resolver.add(full_path, import_).name
+ 
+-                name = reference.short_name
++                name = data_type.reference.short_name
+                 if from_ and import_ and alias != name:
+-                    data_type.alias = alias if reference.short_name == import_ else f"{alias}.{name}"
++                    data_type.alias = alias if data_type.reference.short_name == import_ else f"{alias}.{name}"
+                     import_sensitive_alias_changed = True
+ 
+                 if init and not target_full_name.startswith(current_module_name + "."):
+@@ -1915,7 +1897,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
+                         from_=from_,
+                         import_=import_,
+                         alias=alias,
+-                        reference_path=reference.path,
++                        reference_path=data_type.reference.path,
+                     ),
+                 )
+             if import_sensitive_alias_changed:  # pragma: no cover
+@@ -2379,7 +2361,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
+         unused_models: list[DataModel],
+         imports: Imports,
+         scoped_model_resolver: ModelResolver,
+-        model_path_to_module_name: dict[str, str] | None = None,
+     ) -> None:
+         if not self.collapse_root_models:
+             return
+@@ -2507,13 +2488,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
+                         continue
+ 
+                     for d in copied_data_type.all_data_types:
+-                        _register_data_type_import(
+-                            d,
+-                            model,
+-                            imports,
+-                            scoped_model_resolver,
+-                            model_path_to_module_name,
+-                        )
++                        _register_data_type_import(d, model, imports, scoped_model_resolver)
+ 
+                     original_field = get_most_of_parent(data_type, DataModelFieldBase)
+                     if original_field:  # pragma: no cover
+@@ -3662,7 +3637,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
+         self.__extract_inherited_enum(models)
+         self.__set_reference_default_value_to_field(models)
+         self.__reuse_model(models, require_update_action_models)
+-        self.__collapse_root_models(models, unused_models, imports, scoped_model_resolver, model_path_to_module_name)
++        self.__collapse_root_models(models, unused_models, imports, scoped_model_resolver)
+         self.__set_default_enum_member(models)
+         self.__sort_models(models, imports, use_deferred_annotations=config.use_deferred_annotations)
+         self.__change_field_name(models)
+diff --git a/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/__init__.py b/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/__init__.py
+deleted file mode 100644
+index 7782a2fe..00000000
+--- a/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/__init__.py
++++ /dev/null
+@@ -1,2 +0,0 @@
+-# generated by datamodel-codegen:
+-#   filename:  exact_imports_collapse_root_models_module_split_oneof.json
+diff --git a/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/animal_home.py b/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/animal_home.py
+deleted file mode 100644
+index 43c03f0b..00000000
+--- a/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/animal_home.py
++++ /dev/null
+@@ -1,13 +0,0 @@
+-# generated by datamodel-codegen:
+-#   filename:  exact_imports_collapse_root_models_module_split_oneof.json
+-
+-from __future__ import annotations
+-
+-from pydantic import BaseModel
+-
+-from .cat import Cat
+-from .dog import Dog
+-
+-
+-class AnimalHome(BaseModel):
+-    pets: list[Cat | Dog]
+diff --git a/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/cat.py b/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/cat.py
+deleted file mode 100644
+index 5727ce33..00000000
+--- a/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/cat.py
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# generated by datamodel-codegen:
+-#   filename:  exact_imports_collapse_root_models_module_split_oneof.json
+-
+-from __future__ import annotations
+-
+-from pydantic import BaseModel
+-
+-
+-class Cat(BaseModel):
+-    meow: bool
+diff --git a/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/dog.py b/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/dog.py
+deleted file mode 100644
+index 9209aaed..00000000
+--- a/tests/data/expected/main/jsonschema/exact_imports_collapse_root_models_module_split_oneof/dog.py
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# generated by datamodel-codegen:
+-#   filename:  exact_imports_collapse_root_models_module_split_oneof.json
+-
+-from __future__ import annotations
+-
+-from pydantic import BaseModel
+-
+-
+-class Dog(BaseModel):
+-    bark: bool
+diff --git a/tests/data/jsonschema/exact_imports_collapse_root_models_module_split_oneof.json b/tests/data/jsonschema/exact_imports_collapse_root_models_module_split_oneof.json
+deleted file mode 100644
+index 39eafeae..00000000
+--- a/tests/data/jsonschema/exact_imports_collapse_root_models_module_split_oneof.json
++++ /dev/null
+@@ -1,33 +0,0 @@
+-{
+-  "title": "Animal Home",
+-  "type": "object",
+-  "required": ["pets"],
+-  "properties": {
+-    "pets": {
+-      "type": "array",
+-      "items": { "$ref": "#/definitions/Pet" }
+-    }
+-  },
+-  "definitions": {
+-    "Pet": {
+-      "oneOf": [
+-        { "$ref": "#/definitions/Cat" },
+-        { "$ref": "#/definitions/Dog" }
+-      ]
+-    },
+-    "Cat": {
+-      "type": "object",
+-      "required": ["meow"],
+-      "properties": {
+-        "meow": { "type": "boolean" }
+-      }
+-    },
+-    "Dog": {
+-      "type": "object",
+-      "required": ["bark"],
+-      "properties": {
+-        "bark": { "type": "boolean" }
+-      }
+-    }
+-  }
+-}
+diff --git a/tests/main/conftest.py b/tests/main/conftest.py
+index 549da61d..2214373c 100644
+--- a/tests/main/conftest.py
++++ b/tests/main/conftest.py
+@@ -2,7 +2,6 @@
+ 
+ from __future__ import annotations
+ 
+-import importlib
+ import importlib.util
+ import inspect
+ import os
+@@ -270,47 +269,6 @@ def _assert_python_module_importable(path: Path, module_name: str, attribute: st
+         sys.modules.pop(module_name, None)
+ 
+ 
+-@contextmanager
+-def _generated_package_module(output_path: Path, module_path: str) -> Generator[Any, None, None]:
+-    """Temporarily import a generated package module without leaking module cache state."""
+-    package_name = output_path.name
+-    module_name = f"{package_name}.{module_path}"
+-    module_prefix = f"{package_name}."
+-    previous_modules = {
+-        name: module for name, module in sys.modules.items() if name == package_name or name.startswith(module_prefix)
+-    }
+-    for name in list(sys.modules):
+-        if name == package_name or name.startswith(module_prefix):
+-            sys.modules.pop(name, None)
+-
+-    parent_directory = str(output_path.parent)
+-    sys.path.insert(0, parent_directory)
+-    importlib.invalidate_caches()
+-    try:
+-        yield importlib.import_module(module_name)
+-    finally:
+-        sys.path.remove(parent_directory)
+-        for name in [name for name in sys.modules if name == package_name or name.startswith(module_prefix)]:
+-            sys.modules.pop(name, None)
+-        sys.modules.update(previous_modules)
+-
+-
+-def _assert_generated_package_model_validation(
+-    output_path: Path,
+-    *,
+-    module_path: str,
+-    model_name: str,
+-    data: Mapping[str, Any],
+-) -> None:
+-    """Assert a generated package model can validate runtime data."""
+-    with _generated_package_module(output_path, module_path) as module:
+-        model = getattr(module, model_name)
+-        validate = getattr(model, "model_validate", None)
+-        if not callable(validate):  # pragma: no cover
+-            pytest.fail(f"Expected generated model {model_name!r} to define model_validate")
+-        validate(data)
+-
+-
+ @cache
+ def _get_valid_cli_options() -> frozenset[str]:
+     """Get all valid CLI option names from arg_parser."""
+@@ -897,9 +855,6 @@ def run_main_and_assert(  # noqa: PLR0912
+     importable_module_name: str | None = None,
+     importable_module_file: str | Path | None = None,
+     importable_module_attribute: str | None = None,
+-    runtime_validation_module: str | None = None,
+-    runtime_validation_model_name: str | None = None,
+-    runtime_validation_data: Mapping[str, Any] | None = None,
+ ) -> None:
+     """Execute main() and assert output.
+ 
+@@ -947,23 +902,8 @@ def run_main_and_assert(  # noqa: PLR0912
+         importable_module_name: Import output_path as this module name
+         importable_module_file: Relative file under output_path to import
+         importable_module_attribute: Assert imported module defines this attribute
+-        runtime_validation_module: Relative generated package module to import
+-        runtime_validation_model_name: Model class name to validate at runtime
+-        runtime_validation_data: Data passed to model_validate on the generated model
+     """
+     __tracebackhide__ = True
+-    runtime_validation_options = (
+-        runtime_validation_module,
+-        runtime_validation_model_name,
+-        runtime_validation_data,
+-    )
+-    if any(option is not None for option in runtime_validation_options) and not all(
+-        option is not None for option in runtime_validation_options
+-    ):  # pragma: no cover
+-        pytest.fail(
+-            "runtime_validation_module, runtime_validation_model_name, and runtime_validation_data "
+-            "must be passed together"
+-        )
+ 
+     # Handle stdin input
+     if stdin_path is not None:
+@@ -1101,24 +1041,6 @@ def run_main_and_assert(  # noqa: PLR0912
+         if importable_module_file is not None:
+             importable_path = output_path / importable_module_file
+         _assert_python_module_importable(importable_path, importable_module_name, importable_module_attribute)
+-    if runtime_validation_module is not None:
+-        if output_path is None:  # pragma: no cover
+-            pytest.fail("output_path is required when using runtime_validation_module")
+-        if _should_skip_compile(extra_args):
+-            return
+-        runtime_validation_model = runtime_validation_model_name
+-        runtime_validation_payload = runtime_validation_data
+-        if runtime_validation_model is None or runtime_validation_payload is None:  # pragma: no cover
+-            pytest.fail(
+-                "runtime_validation_module, runtime_validation_model_name, and runtime_validation_data "
+-                "must be passed together"
+-            )
+-        _assert_generated_package_model_validation(
+-            output_path,
+-            module_path=runtime_validation_module,
+-            model_name=runtime_validation_model,
+-            data=runtime_validation_payload,
+-        )
+ 
+ 
+ def _get_argument_value(arguments: Sequence[str] | None, argument_name: str) -> str | None:
+diff --git a/tests/main/jsonschema/test_main_jsonschema.py b/tests/main/jsonschema/test_main_jsonschema.py
+index 86d70e8a..f6674e97 100644
+--- a/tests/main/jsonschema/test_main_jsonschema.py
++++ b/tests/main/jsonschema/test_main_jsonschema.py
+@@ -13116,31 +13116,6 @@ def test_main_exact_imports_collapse_root_models_title_array(output_dir: Path) -
+     )
+ 
+ 
+-def test_main_exact_imports_collapse_root_models_module_split_oneof_imports(output_dir: Path) -> None:
+-    """Regression test for https://github.com/koxudaxi/datamodel-code-generator/issues/3487."""
+-    run_main_and_assert(
+-        input_path=JSON_SCHEMA_DATA_PATH / "exact_imports_collapse_root_models_module_split_oneof.json",
+-        output_path=output_dir,
+-        input_file_type="jsonschema",
+-        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "exact_imports_collapse_root_models_module_split_oneof",
+-        extra_args=[
+-            "--output-model-type",
+-            "pydantic_v2.BaseModel",
+-            "--target-python-version",
+-            "3.10",
+-            "--use-exact-imports",
+-            "--collapse-root-models",
+-            "--module-split-mode",
+-            "single",
+-            "--disable-timestamp",
+-        ],
+-        force_exec_validation=True,
+-        runtime_validation_module="animal_home",
+-        runtime_validation_model_name="AnimalHome",
+-        runtime_validation_data={"pets": [{"bark": True}]},
+-    )
+-
+-
+ @pytest.mark.timeout(30)
+ def test_main_jsonschema_discriminated_oneof_allof_cycle(output_file: Path) -> None:
+     """Discriminated oneOf with variants that allOf the parent (circular graph).
+diff --git a/tests/test_assert_helper_usage.py b/tests/test_assert_helper_usage.py
+index df245c2a..77b1115a 100644
+--- a/tests/test_assert_helper_usage.py
++++ b/tests/test_assert_helper_usage.py
+@@ -17,12 +17,7 @@ from tests.conftest import (
+     assert_httpx_get_kwargs,
+     create_httpx_get_mock,
+ )
+-from tests.main.conftest import (
+-    _assert_generated_package_model_validation,
+-    assert_generated_model_json_invalid,
+-    assert_generated_model_json_validation,
+-    run_main_and_assert,
+-)
++from tests.main.conftest import assert_generated_model_json_invalid, assert_generated_model_json_validation
+ 
+ if TYPE_CHECKING:
+     from collections.abc import Iterable
+@@ -531,55 +526,3 @@ def test_generated_model_json_helpers_restore_existing_module(tmp_path: Path) ->
+         assert sys.modules[module_name] is previous_module
+     finally:
+         sys.modules.pop(module_name, None)
+-
+-
+-def test_generated_package_model_validation_restores_existing_modules(tmp_path: Path) -> None:
+-    """Generated-package validation restores existing package modules."""
+-    output_dir = tmp_path / "model"
+-    output_dir.mkdir()
+-    (output_dir / "__init__.py").write_text("", encoding="utf-8")
+-    (output_dir / "target.py").write_text(
+-        "from pydantic import BaseModel\n\nclass Target(BaseModel):\n    value: int\n",
+-        encoding="utf-8",
+-    )
+-
+-    previous_package = ModuleType("model")
+-    previous_module = ModuleType("model.target")
+-    sys.modules["model"] = previous_package
+-    sys.modules["model.target"] = previous_module
+-
+-    try:
+-        _assert_generated_package_model_validation(
+-            output_dir,
+-            module_path="target",
+-            model_name="Target",
+-            data={"value": 1},
+-        )
+-        assert sys.modules["model"] is previous_package
+-        assert sys.modules["model.target"] is previous_module
+-    finally:
+-        sys.modules.pop("model", None)
+-        sys.modules.pop("model.target", None)
+-
+-
+-@pytest.mark.skipif(sys.version_info >= (3, 14), reason="requires a target version newer than the runtime")
+-def test_run_main_runtime_validation_skips_newer_python_target(tmp_path: Path) -> None:
+-    """Runtime validation follows generated-code compatibility guards."""
+-    input_path = tmp_path / "schema.json"
+-    input_path.write_text('{"type": "object", "properties": {"value": {"type": "integer"}}}', encoding="utf-8")
+-
+-    run_main_and_assert(
+-        input_path=input_path,
+-        output_path=tmp_path / "model.py",
+-        input_file_type="jsonschema",
+-        extra_args=[
+-            "--target-python-version",
+-            "3.14",
+-            "--formatters",
+-            "builtin",
+-        ],
+-        skip_code_validation=True,
+-        runtime_validation_module="missing_module",
+-        runtime_validation_model_name="MissingModel",
+-        runtime_validation_data={},
+-    )
