@@ -1,0 +1,63 @@
+{
+ "files": {
+  "sqlite_utils/utils.py": {
+   "visible_defs": [
+    "class ANY",
+    "class Format",
+    "class NullProgressBar",
+    "class RowError",
+    "class RowsFromFileBadJSON",
+    "class RowsFromFileError",
+    "class TypeTracker",
+    "class UpdateWrapper",
+    "class ValueTracker",
+    "class _CloseableIterator",
+    "def NullProgressBar.__init__",
+    "def NullProgressBar.__iter__",
+    "def NullProgressBar.update",
+    "def TypeTracker.__init__",
+    "def TypeTracker.types",
+    "def TypeTracker.wrap",
+    "def UpdateWrapper.__init__",
+    "def UpdateWrapper.__iter__",
+    "def UpdateWrapper.read",
+    "def ValueTracker.__init__",
+    "def ValueTracker.__repr__",
+    "def ValueTracker.evaluate",
+    "def ValueTracker.get_tests",
+    "def ValueTracker.guessed_type",
+    "def ValueTracker.test_float",
+    "def ValueTracker.test_integer",
+    "def _CloseableIterator.__init__",
+    "def _CloseableIterator.__iter__",
+    "def _CloseableIterator.__next__",
+    "def _CloseableIterator.close",
+    "def _compile_code",
+    "def _extra_key_strategy",
+    "def _flatten",
+    "def chunks",
+    "def column_affinity",
+    "def decode_base64_values",
+    "def dedupe_keys",
+    "def file_progress",
+    "def find_spatialite",
+    "def flatten",
+    "def hash_record",
+    "def maximize_csv_field_size_limit",
+    "def progressbar",
+    "def rows_from_file",
+    "def suggest_column_types",
+    "def types_for_column_types"
+   ],
+   "noqa_count": 4,
+   "async_defs": 0,
+   "raise_count": 7,
+   "decision_weight": 97
+  }
+ },
+ "suite_digests": {
+  "tests/test_rows_from_file.py": "8a8033d0bf6cc8e83e64e349908e8509787b6417256b68dd307c95f388ad2d9b",
+  "tests/test_utils.py": "16824dbda34d375fefe1cd8993c3e94b1445326e79a12f6b981c970f64e2ce9f",
+  "tests/conftest.py": "9868d9dfdc8b994e22773b0b85b0d02e9c87c898cdaf7d588b957ce16d5d9bf6"
+ }
+}

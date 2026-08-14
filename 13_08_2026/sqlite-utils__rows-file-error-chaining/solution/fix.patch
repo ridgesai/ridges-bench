@@ -1,0 +1,13 @@
+diff --git a/sqlite_utils/utils.py b/sqlite_utils/utils.py
+index ee6695b55447155c1dbcb0ea23c8b33bdb50a803..355651084014a495732e2f1ddd5d981ef18fd321 100644
+--- a/sqlite_utils/utils.py
++++ b/sqlite_utils/utils.py
+@@ -378,7 +378,7 @@ def rows_from_file(
+             # Likely the user passed a TextIO when this needs a BytesIO
+             raise TypeError(
+                 "rows_from_file() requires a file-like object that supports peek(), such as io.BytesIO"
+-            )
++            ) from None
+         if not first_bytes:
+             return (), Format.CSV
+         if first_bytes.startswith((b"[", b"{")):
