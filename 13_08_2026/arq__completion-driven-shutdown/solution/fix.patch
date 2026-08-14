@@ -1,0 +1,53 @@
+diff --git a/arq/worker.py b/arq/worker.py
+index 24c51ff..a7949f2 100644
+--- a/arq/worker.py
++++ b/arq/worker.py
+@@ -264,6 +264,7 @@ class Worker:
+             self.redis_settings = None
+         # self.tasks holds references to run_job coroutines currently running
+         self.tasks: dict[str, asyncio.Task[Any]] = {}
++        self._tasks_changed = asyncio.Event()
+         # self.job_tasks holds references the actual jobs running
+         self.job_tasks: dict[str, asyncio.Task[Any]] = {}
+         self.main_task: Optional[asyncio.Task[None]] = None
+@@ -400,6 +401,7 @@ class Worker:
+         for job_id, t in list(self.tasks.items()):
+             if t.done():
+                 del self.tasks[job_id]
++                self._tasks_changed.set()
+                 # required to make sure errors in run_job get propagated
+                 t.result()
+ 
+@@ -474,6 +476,7 @@ class Worker:
+                     t = self.loop.create_task(self.run_job(job_id, int(score)))
+                     t.add_done_callback(lambda _: self._release_sem_dec_counter_on_complete())
+                     self.tasks[job_id] = t
++                    self._tasks_changed.set()
+ 
+     async def run_job(self, job_id: str, score: int) -> None:  # noqa: C901
+         start_ms = timestamp_ms()
+@@ -802,10 +805,21 @@ class Worker:
+ 
+     async def _sleep_until_tasks_complete(self) -> None:
+         """
+-        Sleeps until all tasks are done. Used together with asyncio.wait_for()
++        Wait until all tasks have been removed by the normal worker cleanup. Used together with asyncio.wait_for().
+         """
+-        while len(self.tasks):
+-            await asyncio.sleep(0.1)
++        while self.tasks:
++            self._tasks_changed.clear()
++            unfinished_tasks = [task for task in self.tasks.values() if not task.done()]
++            tasks_changed = self.loop.create_task(self._tasks_changed.wait())
++            try:
++                if unfinished_tasks:
++                    await asyncio.wait([*unfinished_tasks, tasks_changed], return_when=asyncio.FIRST_COMPLETED)
++                else:
++                    await tasks_changed
++            finally:
++                tasks_changed.cancel()
++                with contextlib.suppress(asyncio.CancelledError):
++                    await tasks_changed
+ 
+     async def _wait_for_tasks_to_complete(self, signum: Signals) -> None:
+         """

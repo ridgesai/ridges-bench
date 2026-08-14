@@ -1,0 +1,60 @@
+{
+ "files": {
+  "arq/worker.py": {
+   "visible_defs": [
+    "async Worker._cancel_aborted_jobs",
+    "async Worker._poll_iteration",
+    "async Worker._sleep_until_tasks_complete",
+    "async Worker._wait_for_tasks_to_complete",
+    "async Worker.async_run",
+    "async Worker.close",
+    "async Worker.finish_failed_job",
+    "async Worker.finish_job",
+    "async Worker.heart_beat",
+    "async Worker.main",
+    "async Worker.record_health",
+    "async Worker.run_check",
+    "async Worker.run_cron",
+    "async Worker.run_job",
+    "async Worker.start_jobs",
+    "async async_check_health",
+    "class FailedJobs",
+    "class Function",
+    "class JobExecutionFailed",
+    "class Retry",
+    "class RetryJob",
+    "class Worker",
+    "def FailedJobs.__init__",
+    "def FailedJobs.__repr__",
+    "def FailedJobs.__str__",
+    "def JobExecutionFailed.__eq__",
+    "def Retry.__init__",
+    "def Retry.__repr__",
+    "def Retry.__str__",
+    "def Worker.__init__",
+    "def Worker.__repr__",
+    "def Worker._add_signal_handler",
+    "def Worker._jobs_started",
+    "def Worker._release_sem_dec_counter_on_complete",
+    "def Worker.handle_sig",
+    "def Worker.handle_sig_wait_for_completion",
+    "def Worker.pool",
+    "def Worker.run",
+    "def check_health",
+    "def create_worker",
+    "def func",
+    "def get_kwargs",
+    "def run_worker"
+   ],
+   "noqa_count": 1,
+   "async_defs": 17,
+   "raise_count": 6,
+   "decision_weight": 143
+  }
+ },
+ "suite_digests": {
+  "tests/test_worker.py": "40284e28475e41d84b672892f9d57330e4ac26249f628881dd1664e01255c268",
+  "tests/test_utils.py": "543bf50299d8eebd4d950f9c6a260e017b6459f1939162660a49efb81438cbf6",
+  "tests/conftest.py": "97be46fda387f3e4dd9f926b4e62996e58897c79847791e61f54223d7e46502e"
+ }
+}
