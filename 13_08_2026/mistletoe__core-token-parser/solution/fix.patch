@@ -1,0 +1,132 @@
+diff --git a/mistletoe/core_tokens.py b/mistletoe/core_tokens.py
+index 8615ffc9ed7d51844580731ed86ea4450dac45df..4fd9d4c57437e4efe9f7e15c6bb72b8c111eb525 100644
+--- a/mistletoe/core_tokens.py
++++ b/mistletoe/core_tokens.py
+@@ -26,6 +26,23 @@ code_pattern = re.compile(r"(?<!\\|`)(?:\\\\)*(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.D
+ _code_matches = []
+ 
+ 
++def _process_bracket(string, i, c, delimiters, matches, root, in_image, code_match):
++    if c == '[':
++        if not in_image:
++            delimiters.append(Delimiter(i, i + 1, string))
++        else:
++            delimiters.append(Delimiter(i - 1, i + 1, string))
++            in_image = False
++    elif c == '!':
++        in_image = True
++    elif c == ']':
++        i = find_link_image(string, i, delimiters, matches, root)
++        code_match = code_pattern.search(string, i)
++    elif in_image:
++        in_image = False
++    return i, in_image, code_match
++
++
+ def find_core_tokens(string, root):
+     delimiters = []
+     matches = []
+@@ -57,19 +74,9 @@ def find_core_tokens(string, root):
+             in_delimiter_run = c
+             start = i
+         if not escaped:
+-            if c == '[':
+-                if not in_image:
+-                    delimiters.append(Delimiter(i, i + 1, string))
+-                else:
+-                    delimiters.append(Delimiter(i - 1, i + 1, string))
+-                    in_image = False
+-            elif c == '!':
+-                in_image = True
+-            elif c == ']':
+-                i = find_link_image(string, i, delimiters, matches, root)
+-                code_match = code_pattern.search(string, i)
+-            elif in_image:
+-                in_image = False
++            i, in_image, code_match = _process_bracket(
++                string, i, c, delimiters, matches, root, in_image, code_match
++            )
+         else:
+             escaped = False
+         i += 1
+@@ -223,42 +230,49 @@ def match_link_image(string, offset, delimiter, root=None):
+     return None
+ 
+ 
++def _match_angle_link_dest(string, offset):
++    escaped = False
++    for i, c in enumerate(string[offset + 1:], start=offset + 1):
++        if c == '\\' and not escaped:
++            escaped = True
++        elif c == '\n' or (c == '<' and not escaped):
++            return None
++        elif c == '>' and not escaped:
++            return offset, i + 1, string[offset + 1:i]
++        elif escaped:
++            escaped = False
++    return None
++
++
++def _match_bare_link_dest(string, offset):
++    escaped = False
++    count = 1
++    for i, c in enumerate(string[offset:], start=offset):
++        if c == '\\' and not escaped:
++            escaped = True
++        elif c in whitespace:
++            return offset, i, string[offset:i]
++        elif not escaped:
++            if c == '(':
++                count += 1
++            elif c == ')':
++                count -= 1
++        elif is_control_char(c):
++            return None
++        elif escaped:
++            escaped = False
++        if count == 0:
++            return offset, i, string[offset:i]
++    return None
++
++
+ def match_link_dest(string, offset):
+     offset = shift_whitespace(string, offset + 1)
+     if offset == len(string):
+         return None
+     if string[offset] == '<':
+-        escaped = False
+-        for i, c in enumerate(string[offset + 1:], start=offset + 1):
+-            if c == '\\' and not escaped:
+-                escaped = True
+-            elif c == '\n' or (c == '<' and not escaped):
+-                return None
+-            elif c == '>' and not escaped:
+-                return offset, i + 1, string[offset + 1:i]
+-            elif escaped:
+-                escaped = False
+-        return None
+-    else:
+-        escaped = False
+-        count = 1
+-        for i, c in enumerate(string[offset:], start=offset):
+-            if c == '\\' and not escaped:
+-                escaped = True
+-            elif c in whitespace:
+-                return offset, i, string[offset:i]
+-            elif not escaped:
+-                if c == '(':
+-                    count += 1
+-                elif c == ')':
+-                    count -= 1
+-            elif is_control_char(c):
+-                return None
+-            elif escaped:
+-                escaped = False
+-            if count == 0:
+-                return offset, i, string[offset:i]
+-        return None
++        return _match_angle_link_dest(string, offset)
++    return _match_bare_link_dest(string, offset)
+ 
+ 
+ def match_link_title(string, offset):
