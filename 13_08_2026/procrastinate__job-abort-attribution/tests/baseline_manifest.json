@@ -1,0 +1,42 @@
+{
+ "files": {
+  "procrastinate/worker.py": {
+   "visible_defs": [
+    "async Worker._abort_running_jobs",
+    "async Worker._fetch_and_process_jobs",
+    "async Worker._handle_notification",
+    "async Worker._monitor_side_tasks",
+    "async Worker._periodic_deferrer",
+    "async Worker._persist_job_status",
+    "async Worker._poll_jobs_to_abort",
+    "async Worker._process_job",
+    "async Worker._run_loop",
+    "async Worker._shutdown",
+    "async Worker._update_heartbeat",
+    "async Worker.run",
+    "class Worker",
+    "def Worker.__init__",
+    "def Worker._abort_job",
+    "def Worker._handle_abort_jobs_requested",
+    "def Worker._log_extra",
+    "def Worker._log_job_outcome",
+    "def Worker._resolve_task_middlewares",
+    "def Worker._start_side_tasks",
+    "def Worker.find_task",
+    "def Worker.stop"
+   ],
+   "noqa_count": 0,
+   "async_defs": 15,
+   "raise_count": 8,
+   "decision_weight": 90
+  }
+ },
+ "suite_digests": {
+  "tests/unit/test_worker.py": "c678ec59428a41816cd37716401f8cdac3b9281f97035320e7acddab2cb48403",
+  "tests/acceptance/conftest.py": "452d01156d5896913f789bce7fa6aa375fef70734488586bd49a1f7cd2eef23b",
+  "tests/benchmarks/conftest.py": "d025c54ce1e83277037c3d188a4d70b73508fb48c8d52209620e055c442cf8e4",
+  "tests/conftest.py": "9f49773f8863b70854fb934ad896ae95963fe57ea60930c86e8f579b242ba31f",
+  "tests/integration/contrib/aiopg/conftest.py": "f2a6e34e50d4b36aa5495686e1dfcc29fa5f5134cb38b056bdc6ae6dcdbe7f61",
+  "tests/integration/contrib/sphinx/conftest.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+ }
+}
