@@ -1,0 +1,112 @@
+diff --git a/src/aiosmtplib/smtp.py b/src/aiosmtplib/smtp.py
+index 35f5ac4..c9b2418 100644
+--- a/src/aiosmtplib/smtp.py
++++ b/src/aiosmtplib/smtp.py
+@@ -263,39 +263,27 @@ class SMTP:
+ 
+         This method can be called multiple times.
+         """
+-        if hostname is not Default.token:
+-            self.hostname = hostname
+-        if use_tls is not None:
+-            self.use_tls = use_tls
+-        if start_tls is not Default.token:
+-            self._start_tls_on_connect = start_tls
+-        if validate_certs is not None:
+-            self.validate_certs = validate_certs
+-        if port is not Default.token:
+-            self.port = port
+-        if username is not Default.token:
+-            self._login_username = username
+-        if password is not Default.token:
+-            self._login_password = password
+-        if oauth_token_generator is not Default.token:
+-            self._oauth_token_generator = oauth_token_generator
+-
+-        if local_hostname is not Default.token:
+-            self.local_hostname = local_hostname
+-        if source_address is not Default.token:
+-            self.source_address = source_address
+-        if client_cert is not Default.token:
+-            self.client_cert = client_cert
+-        if client_key is not Default.token:
+-            self.client_key = client_key
+-        if tls_context is not Default.token:
+-            self.tls_context = tls_context
+-        if cert_bundle is not Default.token:
+-            self.cert_bundle = cert_bundle
+-        if socket_path is not Default.token:
+-            self.socket_path = socket_path
+-        if sock is not Default.token:
+-            self.sock = sock
++        settings = (
++            ("hostname", hostname, Default.token),
++            ("use_tls", use_tls, None),
++            ("_start_tls_on_connect", start_tls, Default.token),
++            ("validate_certs", validate_certs, None),
++            ("port", port, Default.token),
++            ("_login_username", username, Default.token),
++            ("_login_password", password, Default.token),
++            ("_oauth_token_generator", oauth_token_generator, Default.token),
++            ("local_hostname", local_hostname, Default.token),
++            ("source_address", source_address, Default.token),
++            ("client_cert", client_cert, Default.token),
++            ("client_key", client_key, Default.token),
++            ("tls_context", tls_context, Default.token),
++            ("cert_bundle", cert_bundle, Default.token),
++            ("socket_path", socket_path, Default.token),
++            ("sock", sock, Default.token),
++        )
++        for attribute, value, sentinel in settings:
++            if value is not sentinel:
++                setattr(self, attribute, value)
+ 
+     def _validate_config(self) -> None:
+         if self._login_password is not None and self._oauth_token_generator is not None:
+@@ -1499,17 +1487,9 @@ class SMTP:
+         else:
+             mail_options = list(mail_options)
+ 
+-        if sender is None:
+-            sender = extract_sender(message)
+-        if sender is None:
+-            raise ValueError("No From header provided in message")
+-
+-        if isinstance(recipients, str):
+-            recipients = [recipients]
+-        elif recipients is None:
+-            recipients = extract_recipients(message)
+-        if not recipients:
+-            raise ValueError("No recipient headers provided in message")
++        sender, recipients = self._get_sender_and_recipients(
++            message, sender, recipients
++        )
+ 
+         # Make sure we've done an EHLO for extension checks
+         await self._ehlo_or_helo_if_needed()
+@@ -1549,6 +1529,25 @@ class SMTP:
+             timeout=timeout,
+         )
+ 
++    @staticmethod
++    def _get_sender_and_recipients(
++        message: email.message.EmailMessage | email.message.Message,
++        sender: str | None,
++        recipients: str | Sequence[str] | None,
++    ) -> tuple[str, Sequence[str]]:
++        if sender is None:
++            sender = extract_sender(message)
++        if sender is None:
++            raise ValueError("No From header provided in message")
++
++        if isinstance(recipients, str):
++            recipients = [recipients]
++        elif recipients is None:
++            recipients = extract_recipients(message)
++        if not recipients:
++            raise ValueError("No recipient headers provided in message")
++        return sender, recipients
++
+     def sendmail_sync(
+         self, *args: Any, **kwargs: Any
+     ) -> tuple[dict[str, SMTPResponse], str]:
