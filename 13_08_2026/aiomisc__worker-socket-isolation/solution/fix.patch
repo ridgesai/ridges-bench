@@ -1,0 +1,64 @@
+diff --git a/aiomisc/worker_pool.py b/aiomisc/worker_pool.py
+index 9f59e8c..e98d4fc 100644
+--- a/aiomisc/worker_pool.py
++++ b/aiomisc/worker_pool.py
+@@ -9,7 +9,7 @@ from inspect import Traceback
+ from multiprocessing import ProcessError
+ from os import chmod, urandom
+ from subprocess import PIPE, Popen
+-from tempfile import mktemp
++from tempfile import TemporaryDirectory
+ from types import MappingProxyType
+ from typing import Any
+ 
+@@ -66,13 +66,22 @@ class WorkerPool:
+     if hasattr(socket, "AF_UNIX"):
+ 
+         def _create_socket(self) -> None:
+-            path = mktemp(suffix=".sock", prefix="worker-")
+-            self.socket = bind_socket(
+-                socket.AF_UNIX,
+-                socket.SOCK_STREAM,
+-                address=path,
+-                reuse_port=False,
+-            )
++            socket_directory = TemporaryDirectory(prefix="worker-")
++            path = os.path.join(socket_directory.name, "pool.sock")
++            try:
++                self.socket = bind_socket(
++                    socket.AF_UNIX,
++                    socket.SOCK_STREAM,
++                    address=path,
++                    reuse_port=False,
++                )
++                chmod(path, 0o600)
++            except BaseException:
++                socket_object = getattr(self, "socket", None)
++                if socket_object is not None:
++                    socket_object.close()
++                socket_directory.cleanup()
++                raise
++            self._socket_directory = socket_directory
+             self.address = path
+-            chmod(path, 0o600)
+     else:
+@@ -314,6 +323,9 @@ class WorkerPool:
+             )
+             await cancel_tasks(tuple(self.__task_store))
+             await cancel_tasks(tuple(self.__futures))
++            socket_directory = getattr(self, "_socket_directory", None)
++            if socket_directory is not None:
++                socket_directory.cleanup()
+ 
+     def _kill_supervisor(self) -> None:
+         supervisor: Popen | None = getattr(self, "_supervisor", None)
+@@ -330,6 +342,9 @@ class WorkerPool:
+ 
+     def __del__(self) -> None:
+         self._kill_supervisor()
++        socket_directory = getattr(self, "_socket_directory", None)
++        if socket_directory is not None:
++            socket_directory.cleanup()
+ 
+     async def create_task(
+         self, func: Callable[..., T], *args: Any, **kwargs: Any

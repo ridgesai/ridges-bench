@@ -1,0 +1,38 @@
+{
+ "files": {
+  "aiomisc/worker_pool.py": {
+   "visible_defs": [
+    "async WorkerPool.__aenter__",
+    "async WorkerPool.__aexit__",
+    "async WorkerPool.__handle_client",
+    "async WorkerPool.close",
+    "async WorkerPool.create_task",
+    "async WorkerPool.start",
+    "class WorkerPool",
+    "class WorkerPoolStatistic",
+    "def WorkerPool.__create_future",
+    "def WorkerPool.__create_supervisor",
+    "def WorkerPool.__del__",
+    "def WorkerPool.__init__",
+    "def WorkerPool.__reject_futures",
+    "def WorkerPool.__start_handler",
+    "def WorkerPool.__task",
+    "def WorkerPool.__task_add",
+    "def WorkerPool._create_socket",
+    "def WorkerPool._create_socket",
+    "def WorkerPool._kill_process",
+    "def WorkerPool._kill_supervisor",
+    "def WorkerPool.loop"
+   ],
+   "noqa_count": 0,
+   "async_defs": 6,
+   "raise_count": 3,
+   "decision_weight": 34
+  }
+ },
+ "suite_digests": {
+  "tests/test_worker_pool.py": "20789a9fe7ecb5f5eb3bff72c30d412ffc51d9e370ea9e9661b70fb734ad092e",
+  "tests/conftest.py": "9ce13f040e82133631c2447950559783617ddd794cab0dc1ffe74d341e13b5e2",
+  "tests/test_session_scope/conftest.py": "4a19e88ed894a0b43d9968d70fda125f6096ba9248226c8c071905b9ddaa71a6"
+ }
+}
