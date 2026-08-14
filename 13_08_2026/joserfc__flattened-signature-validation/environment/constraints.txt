@@ -1,0 +1,12 @@
+cffi==2.1.1
+cryptography==50.0.0
+iniconfig==2.3.0
+packaging==26.3
+pip==24.0
+pluggy==1.6.0
+pycparser==3.0
+pycryptodome==3.23.0
+Pygments==2.20.0
+pytest==9.1.1
+ruff==0.15.17
+wheel==0.48.0

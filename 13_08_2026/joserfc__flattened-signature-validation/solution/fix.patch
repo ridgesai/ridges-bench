@@ -1,0 +1,14 @@
+diff --git a/src/joserfc/_rfc7515/json.py b/src/joserfc/_rfc7515/json.py
+index 2addbf4073e6b0a434adca0e79f3e35ac6c56225..bea989a921cb85afb0d84515fb4126b0a354e833 100644
+--- a/src/joserfc/_rfc7515/json.py
++++ b/src/joserfc/_rfc7515/json.py
+@@ -127,7 +127,8 @@ def verify_general_json(obj: GeneralJSONSignature, registry: JWSRegistry, find_k
+ 
+ def verify_flattened_json(obj: FlattenedJSONSignature, registry: JWSRegistry, find_key: FindKey) -> bool:
+     payload_segment = obj.segments["payload"]
+-    assert obj.signature is not None
++    if obj.signature is None:
++        return False
+     return verify_signature(obj.member, obj.signature, payload_segment, registry, find_key)
+ 
+ 

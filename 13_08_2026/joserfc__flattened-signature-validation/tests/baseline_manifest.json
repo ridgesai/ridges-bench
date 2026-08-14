@@ -1,0 +1,58 @@
+{
+ "files": {
+  "src/joserfc/_rfc7515/json.py": {
+   "visible_defs": [
+    "def __signature_to_member",
+    "def detach_json_content",
+    "def extract_general_json",
+    "def sign_flattened_json",
+    "def sign_general_json",
+    "def sign_json_member",
+    "def verify_flattened_json",
+    "def verify_general_json",
+    "def verify_signature"
+   ],
+   "noqa_count": 0,
+   "async_defs": 0,
+   "raise_count": 1,
+   "decision_weight": 14
+  }
+ },
+ "suite_digests": {
+  "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/base.py": "f0e00bacd440b4fc7d67cd0a030f5099ae9fb223ae5fc92c2ea26391540ee6fa",
+  "tests/jwe/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/jwe/test_chacha20.py": "89fd541befb3e59c252e6f70d214fd28fe1ba99002d2262daf9e7589e6df5b39",
+  "tests/jwe/test_compact.py": "e41447daf3464652f335593e0e04d2055f79255b802d77759c3dc2a9d5450f85",
+  "tests/jwe/test_ecdh_1pu.py": "52ca6b7e9bdf52a55c476315ade8d767f976476301b745bc64110b2ea0954052",
+  "tests/jwe/test_errors.py": "4f9e414c8e8398b0e26388ee97edd31cafbfef967805564e7c2ae8164942ebdf",
+  "tests/jwe/test_example.py": "8695d9dbb86d46a1bc45c57c1a0cc567450742dcff218019dfa072e76b28b348",
+  "tests/jwe/test_json.py": "739f5c8978fb657bd83cd7ba07301b3c21443b385cbf9ea3a71f57204e9fe645",
+  "tests/jwk/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/jwk/test_ec_key.py": "2e4b9fbcc92bcbd23b08c18bf1400c00429c7b32530a6bedb85dbe1b0288c11b",
+  "tests/jwk/test_jwk_set.py": "cf095439f721292d5bacec9c7425c44c5f23c1ecc379eaa69ea4a57402dd5aa0",
+  "tests/jwk/test_key_methods.py": "af2e9945cb228ca2e5caf26daebe72528c5b150ac33f83850fffaddb8f5d746a",
+  "tests/jwk/test_oct_key.py": "587bd3cf73699c03b401a1b5c95376fe971765114010f33a7398972b418591b5",
+  "tests/jwk/test_okp_key.py": "f5f93678bdd529ea97fb95426306fb765e417164e57f9a4ee1dc2fbbde93c30a",
+  "tests/jwk/test_rsa_key.py": "27a6947c27d1d288fb42cbe1aca35314f23f5eefd0ec6de3716893a15fb078c5",
+  "tests/jws/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/jws/test_compact.py": "bfc73a561e352fd4135dfd7f2a9f806a172465f6bf8d17cafdc04e6a235420b1",
+  "tests/jws/test_eddsa.py": "1b40be81be5e0f1f1a1b652d0bf5fdd3c1dcd83256463b2b8f92d8a06bf4bab0",
+  "tests/jws/test_errors.py": "c0cec4a03a53d9ba98fea29e8bd23ffa5230b231f503eb5bc3bf1a23636859d5",
+  "tests/jws/test_examples.py": "ccf1fbf3da437f8f3860105bd3f6e8e5ab6a14e8e5f35d2970c51fdda24fc445",
+  "tests/jws/test_json.py": "910044a561cd6e9734dd5c48cc772827bc92ea7eb17da54c9cb1cad844266ae9",
+  "tests/jws/test_registry.py": "53a32867dc7e808d181bbc16d6dba419d88963b4559fb594aaaf81e0511611d3",
+  "tests/jws/test_rfc7797.py": "437f78dbd5f23570baa4de5de26d7068421827a195b34cb24fa7fac57fe0abc1",
+  "tests/jwt/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/jwt/test_claims.py": "fabf596a1c1741d2564da089d5751063ebf4362b06e753074310b6ec7c8ddd9c",
+  "tests/jwt/test_fixtures.py": "58ea9911f5adaa4f5d7147a5001026ad7711f709682dc7324b207350d27514d1",
+  "tests/jwt/test_jwt.py": "81d4f3fee658ee1861a185b67a6ea4df150e9b03e988ae4aeb31d0e103997705",
+  "tests/keys/__init__.py": "bf6d6fc9b564d2c38e7fc3b8c64d08f357dd2ef8c1e44628e9464d7a8472b0d0",
+  "tests/rfc7520/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/rfc7520/test_jwe.py": "f3d5e8f1cd18f16db1dfa24b95216dca85d514c7e6e1207c59599412b58488d2",
+  "tests/rfc7520/test_jwk.py": "572120f8fcc408ce425ec17537c36b0e71dc7b8ecc24f3deef35333b54532630",
+  "tests/rfc7520/test_jws.py": "da43e5facc339615f6c62b80e143ffe4ba1bf7862d63cd55dcbaaaee55912788",
+  "tests/test_registry.py": "b77953b0d2c4e1be007377a045a0d6e04ed5ec7bc4700db371b6423ae89d15b1",
+  "tests/test_util.py": "9996db3ba55b1867f0750bad840ad2bfd1c36819c1b0e513e5afbb6d52556793"
+ }
+}
