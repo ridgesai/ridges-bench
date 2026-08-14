@@ -1,0 +1,13 @@
+diff --git a/pyatv/storage/file_storage.py b/pyatv/storage/file_storage.py
+index e6683760e217b5bf5bd409db317218d6fae3bd96..cc3e01d8c06bafa8bb76482a3bf978237e63bf72 100644
+--- a/pyatv/storage/file_storage.py
++++ b/pyatv/storage/file_storage.py
+@@ -49,7 +49,7 @@ class FileStorage(AbstractStorage):
+ 
+     async def load(self) -> None:
+         """Load settings from active storage."""
+-        if path.exists(self._filename):
++        if await self._loop.run_in_executor(None, path.exists, self._filename):
+             _LOGGER.debug("Loading settings from %s", self._filename)
+             model_json = await self._loop.run_in_executor(None, self._read_file)
+             raw_data = json.loads(model_json)

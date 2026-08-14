@@ -1,0 +1,30 @@
+{
+ "files": {
+  "pyatv/storage/file_storage.py": {
+   "visible_defs": [
+    "async FileStorage.load",
+    "async FileStorage.save",
+    "class FileStorage",
+    "def FileStorage.__init__",
+    "def FileStorage.__str__",
+    "def FileStorage._read_file",
+    "def FileStorage._save_file",
+    "def FileStorage.default_storage"
+   ],
+   "noqa_count": 0,
+   "async_defs": 2,
+   "raise_count": 0,
+   "decision_weight": 4
+  }
+ },
+ "suite_digests": {
+  "tests/storage/test_memory_storage.py": "935f7c2a002249ea215b707bf699e534bb34fd830375e7f7fe25818da3edbc25",
+  "tests/test_storage_functional.py": "b6c8d5c0751e1197d7f239db2960acebd74e34a984136c75f91ba1e7eba456fe",
+  "tests/conftest.py": "69cc99453ae6d5d9211ca5199cadcda101c9c452e9e537f7ac85acfd78c2194a",
+  "tests/protocols/airplay/conftest.py": "aa91730352a0ab90e05e4aeb8d93a10300113a011b49284950aceade3ed780e7",
+  "tests/protocols/companion/conftest.py": "07c4aec9e65e63b5ac8c6ce2feec5a3f51ace5c6161f503b0915c56dde916507",
+  "tests/protocols/mrp/conftest.py": "0dcfdaf823b1b309090d023df4b4ab965566ecda51cbe4d0cec7e1092b3423a5",
+  "tests/protocols/raop/conftest.py": "c82daec2bd388c60432b436ad612c064772ecfb5ae9d89d10b4566be2edffb39",
+  "tests/scripts/conftest.py": "ce69fbbb51be5d893f9be86a2ddf2eaf8dd5aa4fa7c417465022c635f92d87c2"
+ }
+}
