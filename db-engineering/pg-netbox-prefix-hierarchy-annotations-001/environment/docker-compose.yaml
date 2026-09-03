@@ -1,0 +1,42 @@
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: postgres.Dockerfile
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+        tmpfs:
+          size: 1073741824
+    environment:
+      POSTGRES_PASSWORD: miner-postgres-visible-71d301ac
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres && test -f /var/lib/postgresql/data/TASK_READY"]
+      interval: 2s
+      timeout: 2s
+      retries: 120
+    deploy:
+      resources:
+        limits:
+          memory: 3072m
+        reservations:
+          memory: 1536m
+          cpus: "0.25"
+
+  redis:
+    build:
+      context: .
+      dockerfile: redis.Dockerfile
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --user task_admin -a redis-admin-miner-visible-b675e04146c1 ping | grep -q PONG"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+        reservations:
+          memory: 512m
+          cpus: "0.1"
