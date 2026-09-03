@@ -1,0 +1,4 @@
+user default off
+user task_admin on >redis-admin-hidden-b675e04146c1 ~* &* +@all
+user solver on >redis-solver-visible-250583cf ~* &* -@all +ping +echo +select +get +set +setex +psetex +getdel +getex +del +unlink +exists +expire +pexpire +expireat +pexpireat +persist +ttl +pttl +mget +mset +msetnx +incr +incrby +decr +decrby +touch +scan +type +strlen +multi +exec +discard +watch +unwatch +client|setinfo +client|id
+user grader_runtime on >redis-grader-hidden-f6a8591aafad ~* &* -@all +ping +echo +select +get +set +setex +psetex +getdel +getex +del +unlink +exists +expire +pexpire +expireat +pexpireat +persist +ttl +pttl +mget +mset +msetnx +incr +incrby +decr +decrby +touch +scan +type +strlen +multi +exec +discard +watch +unwatch +client|setinfo +client|id
