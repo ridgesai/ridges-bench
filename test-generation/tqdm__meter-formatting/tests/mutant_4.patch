@@ -1,0 +1,12 @@
+diff --git a/tqdm/std.py b/tqdm/std.py
+--- a/tqdm/std.py
++++ b/tqdm/std.py
+@@ -556,7 +556,7 @@
+         rate_inv_fmt = (
+             (format_sizeof(inv_rate) if unit_scale else f'{inv_rate:5.2f}')
+             if inv_rate else '?') + 's/' + unit
+-        rate_fmt = rate_inv_fmt if inv_rate and inv_rate > 1 else rate_noinv_fmt
++        rate_fmt = rate_inv_fmt if inv_rate and inv_rate >= 1 else rate_noinv_fmt
+ 
+         if unit_scale:
+             n_fmt = format_sizeof(n, divisor=unit_divisor)

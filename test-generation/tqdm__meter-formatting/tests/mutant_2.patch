@@ -1,0 +1,12 @@
+diff --git a/tqdm/std.py b/tqdm/std.py
+--- a/tqdm/std.py
++++ b/tqdm/std.py
+@@ -623,7 +623,7 @@
+ 
+                 # auto-remove colon for empty `{desc}`
+                 if not prefix:
+-                    bar_format = bar_format.replace("{desc}: ", '')
++                    pass
+             else:
+                 bar_format = "{l_bar}{bar}{r_bar}"
+ 

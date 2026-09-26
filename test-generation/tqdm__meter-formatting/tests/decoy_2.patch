@@ -1,0 +1,19 @@
+diff --git a/tqdm/std.py b/tqdm/std.py
+--- a/tqdm/std.py
++++ b/tqdm/std.py
+@@ -384,10 +384,11 @@
+         out  : str
+             Number with Order of Magnitude SI unit postfix.
+         """
+-        for unit in ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']:
+-            if abs(num) < 999.5:
+-                if abs(num) < 99.95:
+-                    if abs(num) < 9.995:
++        for unit in ('', 'k', 'M', 'G', 'T', 'P', 'E', 'Z'):
++            magnitude = abs(num)
++            if magnitude < 999.5:
++                if magnitude < 99.95:
++                    if magnitude < 9.995:
+                         return f'{num:1.2f}{unit}{suffix}'
+                     return f'{num:2.1f}{unit}{suffix}'
+                 return f'{num:3.0f}{unit}{suffix}'
