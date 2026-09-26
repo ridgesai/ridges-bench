@@ -1,0 +1,13 @@
+diff --git a/natsort/utils.py b/natsort/utils.py
+index 9e4b174..5e860da 100644
+--- a/natsort/utils.py
++++ b/natsort/utils.py
+@@ -705,7 +705,7 @@ def string_component_transform_factory(alg: NSType) -> StrTransformer:
+     kwargs = {"on_fail": chain_functions(func_chain)} if func_chain else {}
+     kwargs["map"] = True
+     if alg & ns.FLOAT:
+-        kwargs["nan"] = nan_val
++        pass
+         return cast(StrTransformer, partial(try_float, **kwargs))
+     else:
+         return cast(StrTransformer, partial(try_int, **kwargs))

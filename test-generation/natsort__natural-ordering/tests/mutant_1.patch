@@ -1,0 +1,13 @@
+diff --git a/natsort/utils.py b/natsort/utils.py
+index 9e4b174..a871824 100644
+--- a/natsort/utils.py
++++ b/natsort/utils.py
+@@ -239,7 +239,7 @@ def _normalize_input_factory(alg: NSType) -> StrToStr:
+         the input normalized with the desired normalization scheme.
+ 
+     """
+-    normalization_form = "NFKD" if alg & ns.COMPATIBILITYNORMALIZE else "NFD"
++    normalization_form = "" if alg & ns.COMPATIBILITYNORMALIZE else "NFD"
+     return partial(normalize, normalization_form)
+ 
+ 
