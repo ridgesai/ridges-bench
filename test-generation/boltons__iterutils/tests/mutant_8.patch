@@ -1,0 +1,12 @@
+diff --git a/boltons/iterutils.py b/boltons/iterutils.py
+--- a/boltons/iterutils.py
++++ b/boltons/iterutils.py
+@@ -1374,7 +1374,7 @@
+                     if not is_iterable(cur):
+                         exc = TypeError('%r object is not indexable'
+                                         % type(cur).__name__)
+-                    raise PathAccessError(exc, seg, path)
++                    pass
+     except PathAccessError:
+         if default is _UNSET:
+             raise

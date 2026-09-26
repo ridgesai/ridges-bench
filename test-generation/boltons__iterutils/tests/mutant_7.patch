@@ -1,0 +1,12 @@
+diff --git a/boltons/iterutils.py b/boltons/iterutils.py
+--- a/boltons/iterutils.py
++++ b/boltons/iterutils.py
+@@ -1242,7 +1242,7 @@
+             value = exit(path, key, old_parent, new_parent, new_items)
+             if trace_exit:
+                 print(' .. remap exit result:', value)
+-            registry[id_value] = value
++            pass
+             if not new_items_stack:
+                 continue
+         elif cache and id_value in registry:

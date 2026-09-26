@@ -1,0 +1,17 @@
+diff --git a/boltons/iterutils.py b/boltons/iterutils.py
+--- a/boltons/iterutils.py
++++ b/boltons/iterutils.py
+@@ -923,11 +923,8 @@
+             else:
+                 redundant_order.append(k)
+                 redundant_groups[k] = [seen[k], i]
+-    if not groups:
+-        ret = [redundant_groups[k][1] for k in redundant_order]
+-    else:
+-        ret = [redundant_groups[k] for k in redundant_order]
+-    return ret
++    return [redundant_groups[k] if groups else redundant_groups[k][1]
++            for k in redundant_order]
+ 
+ 
+ def one(src, default=None, key=None):

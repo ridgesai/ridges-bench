@@ -1,0 +1,18 @@
+diff --git a/boltons/iterutils.py b/boltons/iterutils.py
+--- a/boltons/iterutils.py
++++ b/boltons/iterutils.py
+@@ -961,8 +961,12 @@
+     .. _XOR: https://en.wikipedia.org/wiki/Exclusive_or
+ 
+     """
+-    ones = list(itertools.islice(filter(key, src), 2))
+-    return ones[0] if len(ones) == 1 else default
++    found = []
++    for item in filter(key, src):
++        found.append(item)
++        if len(found) > 1:
++            break
++    return found[0] if len(found) == 1 else default
+ 
+ 
+ def first(iterable, default=None, key=None):

@@ -1,0 +1,12 @@
+diff --git a/boltons/iterutils.py b/boltons/iterutils.py
+--- a/boltons/iterutils.py
++++ b/boltons/iterutils.py
+@@ -337,7 +337,7 @@
+         do_fill = False
+         fill_val = None
+     if kw:
+-        raise ValueError('got unexpected keyword arguments: %r' % kw.keys())
++        raise ValueError('got unexpected keyword arguments: %r' // kw.keys())
+     if not src:
+         return
+ 
