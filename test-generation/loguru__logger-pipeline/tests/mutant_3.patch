@@ -1,0 +1,12 @@
+diff --git a/loguru/_logger.py b/loguru/_logger.py
+--- a/loguru/_logger.py
++++ b/loguru/_logger.py
+@@ -1308,7 +1308,7 @@
+         exception=None,
+         record=False,
+         lazy=False,
+-        colors=False,
++        colors=True,
+         raw=False,
+         capture=True,
+         depth=0,

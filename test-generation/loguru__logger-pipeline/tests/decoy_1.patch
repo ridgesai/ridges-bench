@@ -1,0 +1,13 @@
+diff --git a/loguru/_filters.py b/loguru/_filters.py
+index a192b26..0d4d32c 100644
+--- a/loguru/_filters.py
++++ b/loguru/_filters.py
+@@ -6,7 +6,7 @@ def filter_by_name(record, parent, length):
+     name = record["name"]
+     if name is None:
+         return False
+-    return (name + ".")[:length] == parent
++    return (name + ".").startswith(parent)
+ 
+ 
+ def filter_by_level(record, level_per_module):

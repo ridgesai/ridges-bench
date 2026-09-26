@@ -1,0 +1,17 @@
+diff --git a/loguru/_logger.py b/loguru/_logger.py
+index 0167a1e..0c06b93 100644
+--- a/loguru/_logger.py
++++ b/loguru/_logger.py
+@@ -1435,8 +1435,10 @@ class Logger:
+         >>> instance_2.call("Second instance")
+         127.0.0.1 - Second instance
+         """
+-        *options, extra = __self._options
+-        return Logger(__self._core, *options, {**extra, **kwargs})
++        *options, bound_extra = __self._options
++        merged_extra = dict(bound_extra)
++        merged_extra.update(kwargs)
++        return Logger(__self._core, *options, merged_extra)
+ 
+     @contextlib.contextmanager
+     def contextualize(__self, **kwargs):  # noqa: N805

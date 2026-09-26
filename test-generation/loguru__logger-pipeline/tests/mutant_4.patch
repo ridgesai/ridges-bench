@@ -1,0 +1,9 @@
+diff --git a/loguru/_filters.py b/loguru/_filters.py
+--- a/loguru/_filters.py
++++ b/loguru/_filters.py
+@@ -21,4 +21,4 @@
+         if not name:
+             return True
+         index = name.rfind(".")
+-        name = name[:index] if index != -1 else ""
++        name = name[:index] if index != +1 else ""

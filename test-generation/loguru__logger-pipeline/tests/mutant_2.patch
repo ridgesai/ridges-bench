@@ -1,0 +1,12 @@
+diff --git a/loguru/_logger.py b/loguru/_logger.py
+--- a/loguru/_logger.py
++++ b/loguru/_logger.py
+@@ -2011,7 +2011,7 @@
+                 type_, value, traceback = sys.exc_info()
+             exception = RecordException(type_, value, traceback)
+         else:
+-            exception = None
++            pass
+ 
+         log_record = {
+             "elapsed": elapsed,
