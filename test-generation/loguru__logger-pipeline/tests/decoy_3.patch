@@ -1,0 +1,15 @@
+diff --git a/loguru/_logger.py b/loguru/_logger.py
+index 0167a1e..07948a6 100644
+--- a/loguru/_logger.py
++++ b/loguru/_logger.py
+@@ -2030,8 +2030,8 @@ class Logger:
+         }
+ 
+         if lazy:
+-            args = [arg() for arg in args]
+-            kwargs = {key: value() for key, value in kwargs.items()}
++            args = [make_arg() for make_arg in args]
++            kwargs = {key_name: make_value() for key_name, make_value in kwargs.items()}
+ 
+         if capture and kwargs:
+             log_record["extra"].update(kwargs)

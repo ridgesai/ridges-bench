@@ -1,0 +1,12 @@
+diff --git a/loguru/_logger.py b/loguru/_logger.py
+--- a/loguru/_logger.py
++++ b/loguru/_logger.py
+@@ -1138,7 +1138,7 @@
+         reraise=False,
+         onerror=None,
+         exclude=None,
+-        default=None,
++        default=0,
+         message="An error has been caught in function '{record[function]}', "
+         "process '{record[process].name}' ({record[process].id}), "
+         "thread '{record[thread].name}' ({record[thread].id}):"

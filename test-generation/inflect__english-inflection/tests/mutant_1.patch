@@ -1,0 +1,13 @@
+diff --git a/inflect/__init__.py b/inflect/__init__.py
+index 3eef486..941309c 100644
+--- a/inflect/__init__.py
++++ b/inflect/__init__.py
+@@ -3550,7 +3550,7 @@ class engine:
+         (ARTICLE_SPECIAL_EU, "a"),
+         (ARTICLE_SPECIAL_ONCE, "a"),
+         (ARTICLE_SPECIAL_ONETIME, "a"),
+-        (ARTICLE_SPECIAL_UNIT, "a"),
++        (ARTICLE_SPECIAL_UNIT, ""),
+         (ARTICLE_SPECIAL_UBA, "a"),
+         (ARTICLE_SPECIAL_UKR, "a"),
+         (A_explicit_a, "a"),

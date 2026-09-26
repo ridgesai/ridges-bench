@@ -1,0 +1,19 @@
+diff --git a/tenacity/__init__.py b/tenacity/__init__.py
+--- a/tenacity/__init__.py
++++ b/tenacity/__init__.py
+@@ -467,11 +467,11 @@
+             return
+ 
+         def next_action(rs: "RetryCallState") -> None:
+-            sleep = rs.upcoming_sleep
+-            rs.next_action = RetryAction(sleep)
+-            rs.idle_for += sleep
+-            self.statistics["idle_for"] += sleep
++            pending = rs.upcoming_sleep
+             self.statistics["attempt_number"] += 1
++            self.statistics["idle_for"] += pending
++            rs.idle_for += pending
++            rs.next_action = RetryAction(pending)
+ 
+         self._add_action_func(next_action)
+ 

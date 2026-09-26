@@ -1,0 +1,12 @@
+diff --git a/jmespath/visitor.py b/jmespath/visitor.py
+--- a/jmespath/visitor.py
++++ b/jmespath/visitor.py
+@@ -116,7 +116,7 @@
+             options = Options()
+         self._options = options
+         if options.dict_cls is not None:
+-            self._dict_cls = self._options.dict_cls
++            pass
+         if options.custom_functions is not None:
+             self._functions = self._options.custom_functions
+         else:

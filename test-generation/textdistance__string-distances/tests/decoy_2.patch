@@ -1,0 +1,20 @@
+diff --git a/textdistance/algorithms/token_based.py b/textdistance/algorithms/token_based.py
+--- a/textdistance/algorithms/token_based.py
++++ b/textdistance/algorithms/token_based.py
+@@ -49,12 +49,10 @@
+         if result is not None:
+             return result
+ 
+-        sequences = self._get_counters(*sequences)               # sets
+-        intersection = self._intersect_counters(*sequences)      # set
+-        intersection = self._count_counters(intersection)        # int
+-        union = self._union_counters(*sequences)                 # set
+-        union = self._count_counters(union)                      # int
+-        return intersection / union
++        counters = self._get_counters(*sequences)
++        common = self._count_counters(self._intersect_counters(*counters))
++        total = self._count_counters(self._union_counters(*counters))
++        return common / total
+ 
+ 
+ class Sorensen(_BaseSimilarity):

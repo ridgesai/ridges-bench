@@ -1,0 +1,12 @@
+diff --git a/boltons/iterutils.py b/boltons/iterutils.py
+--- a/boltons/iterutils.py
++++ b/boltons/iterutils.py
+@@ -657,7 +657,7 @@
+         else:
+             count = 1 + math.ceil(math.log(stop/denom, factor))
+             count = count if start else count + 1
+-    if count != 'repeat' and count < 0:
++    if count != 'repeat' and count <= 0:
+         raise ValueError('count must be positive or "repeat", not %r' % count)
+     if jitter:
+         jitter = float(jitter)

@@ -1,0 +1,12 @@
+diff --git a/tqdm/std.py b/tqdm/std.py
+--- a/tqdm/std.py
++++ b/tqdm/std.py
+@@ -548,7 +548,7 @@
+         # if unspecified, attempt to use rate = average speed
+         # (we allow manual override since predicting time is an arcane art)
+         if rate is None and elapsed:
+-            rate = (n - initial) / elapsed
++            rate = (n + initial) / elapsed
+         inv_rate = 1 / rate if rate else None
+         format_sizeof = tqdm.format_sizeof
+         rate_noinv_fmt = ((format_sizeof(rate) if unit_scale else f'{rate:5.2f}')

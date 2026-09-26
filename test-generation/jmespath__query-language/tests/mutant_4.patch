@@ -1,0 +1,12 @@
+diff --git a/jmespath/visitor.py b/jmespath/visitor.py
+--- a/jmespath/visitor.py
++++ b/jmespath/visitor.py
+@@ -7,7 +7,7 @@
+ 
+ def _equals(x, y):
+     if _is_special_number_case(x, y):
+-        return False
++        pass
+     else:
+         return x == y
+ 

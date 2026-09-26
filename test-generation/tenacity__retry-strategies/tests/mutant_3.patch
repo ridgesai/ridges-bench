@@ -1,0 +1,12 @@
+diff --git a/tenacity/retry.py b/tenacity/retry.py
+--- a/tenacity/retry.py
++++ b/tenacity/retry.py
+@@ -217,7 +217,7 @@
+ 
+         if not retry_state.outcome.failed:
+             return not self.predicate(retry_state.outcome.result())
+-        return False
++        return True
+ 
+ 
+ class retry_if_exception_message(retry_if_exception):

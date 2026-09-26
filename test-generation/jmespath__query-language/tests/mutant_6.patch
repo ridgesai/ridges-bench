@@ -1,0 +1,12 @@
+diff --git a/jmespath/parser.py b/jmespath/parser.py
+--- a/jmespath/parser.py
++++ b/jmespath/parser.py
+@@ -126,7 +126,7 @@
+                                         "Unexpected token: %s" % t['value'])
+         return ParsedResult(expression, parsed)
+ 
+-    def _expression(self, binding_power=0):
++    def _expression(self, binding_power=1):
+         left_token = self._lookahead_token(0)
+         self._advance()
+         nud_function = getattr(

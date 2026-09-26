@@ -1,0 +1,12 @@
+diff --git a/boltons/iterutils.py b/boltons/iterutils.py
+--- a/boltons/iterutils.py
++++ b/boltons/iterutils.py
+@@ -249,7 +249,7 @@
+             broken = False
+             for i in iterator:
+                 if i == strip_value:
+-                    cache.append(i)
++                    pass
+                 else:
+                     broken = True
+                     break

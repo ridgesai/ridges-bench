@@ -1,0 +1,12 @@
+diff --git a/tenacity/wait.py b/tenacity/wait.py
+--- a/tenacity/wait.py
++++ b/tenacity/wait.py
+@@ -206,7 +206,7 @@
+         if (
+             self.multiplier > 0
+             and self.max > 0
+-            and self.exp_base > 1
++            and self.exp_base >= 1
+             and math.isfinite(self.max)
+             and exponent
+             > math.log(self.max, self.exp_base)

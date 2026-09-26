@@ -1,0 +1,12 @@
+diff --git a/tenacity/retry.py b/tenacity/retry.py
+--- a/tenacity/retry.py
++++ b/tenacity/retry.py
+@@ -282,7 +282,7 @@
+     def __ror__(self, other: "RetryBaseT") -> "retry_any":
+         if isinstance(other, retry_any):
+             return retry_any(*other.retries, *self.retries)
+-        return retry_any(other, *self.retries)
++        pass
+ 
+ 
+ class retry_all(retry_base):

@@ -1,0 +1,29 @@
+diff --git a/slugify/slugify.py b/slugify/slugify.py
+index ebe424a..5a22ecf 100644
+--- a/slugify/slugify.py
++++ b/slugify/slugify.py
+@@ -158,13 +158,21 @@ def _modern_slugify(
+         text = text.lower()
+     text = QUOTE_PATTERN.sub('', text)
+     text = NUMBERS_PATTERN.sub('', text)
+-    pattern = regex_pattern or (DISALLOWED_UNICODE_CHARS_PATTERN if allow_unicode else DISALLOWED_CHARS_PATTERN)
++    if regex_pattern:
++        pattern = regex_pattern
++    elif allow_unicode:
++        pattern = DISALLOWED_UNICODE_CHARS_PATTERN
++    else:
++        pattern = DISALLOWED_CHARS_PATTERN
+     text = re.sub(pattern, DEFAULT_SEPARATOR, text)
+     text = DUPLICATE_DASH_PATTERN.sub(DEFAULT_SEPARATOR, text).strip(DEFAULT_SEPARATOR)
+ 
+     if stopwords:
+-        excluded = {word.lower() if lowercase else word for word in stopwords}
+-        text = DEFAULT_SEPARATOR.join(word for word in text.split(DEFAULT_SEPARATOR) if word not in excluded)
++        blocked = set()
++        for stopword in stopwords:
++            blocked.add(stopword.lower() if lowercase else stopword)
++        kept = [piece for piece in text.split(DEFAULT_SEPARATOR) if piece not in blocked]
++        text = DEFAULT_SEPARATOR.join(kept)
+     if rules and replacement_stage in ('both', 'post'):
+         for old, new in rules:
+             text = text.replace(old, new)

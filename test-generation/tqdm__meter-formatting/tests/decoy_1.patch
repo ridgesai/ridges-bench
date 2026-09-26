@@ -1,0 +1,18 @@
+diff --git a/tqdm/std.py b/tqdm/std.py
+--- a/tqdm/std.py
++++ b/tqdm/std.py
+@@ -410,9 +410,11 @@
+             [H:]MM:SS
+         """
+         sign = '-' if t < 0 else ''
+-        mins, s = divmod(abs(int(t)), 60)
+-        h, m = divmod(mins, 60)
+-        return f'{sign}{h:d}:{m:02d}:{s:02d}' if h else f'{sign}{m:02d}:{s:02d}'
++        minutes, secs = divmod(abs(int(t)), 60)
++        hours, minutes = divmod(minutes, 60)
++        if hours:
++            return f'{sign}{hours:d}:{minutes:02d}:{secs:02d}'
++        return f'{sign}{minutes:02d}:{secs:02d}'
+ 
+     @staticmethod
+     def format_num(n):

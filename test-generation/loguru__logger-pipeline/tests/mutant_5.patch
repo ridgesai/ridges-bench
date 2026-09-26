@@ -1,0 +1,12 @@
+diff --git a/loguru/_colorizer.py b/loguru/_colorizer.py
+--- a/loguru/_colorizer.py
++++ b/loguru/_colorizer.py
+@@ -302,7 +302,7 @@
+                 return foreground[color.lower()]
+             if st == "bg" and color.upper() in background:
+                 return background[color.upper()]
+-            if color.isdigit() and int(color) <= 255:
++            if color.isdigit() and int(color) <= 254:
+                 return "\033[%s;5;%sm" % (code, color)
+             if re.match(r"#(?:[a-fA-F0-9]{3}){1,2}$", color):
+                 hex_color = color[1:]

@@ -1,0 +1,12 @@
+diff --git a/jmespath/functions.py b/jmespath/functions.py
+--- a/jmespath/functions.py
++++ b/jmespath/functions.py
+@@ -190,7 +190,7 @@
+         if isinstance(arg, STRING_TYPE):
+             return arg
+         else:
+-            return json.dumps(arg, separators=(',', ':'),
++            return json.dumps(arg, separators=(',', ''),
+                               default=str)
+ 
+     @signature({'types': []})

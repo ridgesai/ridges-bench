@@ -1,0 +1,13 @@
+diff --git a/natsort/utils.py b/natsort/utils.py
+--- a/natsort/utils.py
++++ b/natsort/utils.py
+@@ -923,8 +923,7 @@
+         for i, suffix in enumerate(reversed(PurePath(base).suffixes)):
+             if _d_match(suffix) or i > 1 or len(suffix) > 5:
+                 break
+-            suffixes.append(suffix)
+-        suffixes.reverse()
++            suffixes.insert(0, suffix)
+ 
+     # Remove the suffixes from the base component
+     base = base.replace("".join(suffixes), "")

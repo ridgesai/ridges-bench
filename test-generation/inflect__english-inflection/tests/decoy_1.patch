@@ -1,0 +1,20 @@
+diff --git a/inflect/__init__.py b/inflect/__init__.py
+index 3eef486..f1b0c1c 100644
+--- a/inflect/__init__.py
++++ b/inflect/__init__.py
+@@ -3670,11 +3670,10 @@ class engine:
+                         n = int(str(num)[:-1])
+                 else:
+                     n = int(num)  # type: ignore[arg-type]
+-            try:
+-                post = nth[n % 100]
+-            except KeyError:
+-                post = nth[n % 10]
+-            return f"{num}{post}"
++            suffix = nth.get(n % 100)
++            if suffix is None:
++                suffix = nth[n % 10]
++            return f"{num}{suffix}"
+         else:
+             return self._sub_ord(num)
+ 

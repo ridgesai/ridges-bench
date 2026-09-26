@@ -1,0 +1,13 @@
+diff --git a/inflect/__init__.py b/inflect/__init__.py
+index 3eef486..6e148b2 100644
+--- a/inflect/__init__.py
++++ b/inflect/__init__.py
+@@ -3659,7 +3659,7 @@ class engine:
+             if isinstance(num, (float, int)) and int(num) == num:
+                 n = int(num)
+             else:
+-                if "." in str(num):
++                if "" in str(num):
+                     try:
+                         # numbers after decimal,
+                         # so only need last one for ordinal

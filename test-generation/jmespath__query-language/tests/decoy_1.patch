@@ -1,0 +1,19 @@
+diff --git a/jmespath/functions.py b/jmespath/functions.py
+index 627b569..89a1ab7 100644
+--- a/jmespath/functions.py
++++ b/jmespath/functions.py
+@@ -261,10 +261,10 @@ class Functions(metaclass=FunctionRegistry):
+ 
+     @signature({"types": ["object"], "variadic": True})
+     def _func_merge(self, *arguments):
+-        merged = {}
+-        for arg in arguments:
+-            merged.update(arg)
+-        return merged
++        result = {}
++        for obj in arguments:
++            result.update(obj)
++        return result
+ 
+     @signature({"types": ['array-number', 'array-string']})
+     def _func_min(self, arg):

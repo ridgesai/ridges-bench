@@ -1,0 +1,23 @@
+diff --git a/boltons/iterutils.py b/boltons/iterutils.py
+--- a/boltons/iterutils.py
++++ b/boltons/iterutils.py
+@@ -858,12 +858,13 @@
+         def key_func(x): return getattr(x, key, x)
+     else:
+         raise TypeError('"key" expected a string or callable, not %r' % key)
+-    seen = set()
+-    for i in src:
+-        k = key_func(i)
+-        if k not in seen:
+-            seen.add(k)
+-            yield i
++    already = set()
++    for item in src:
++        marker = key_func(item)
++        if marker in already:
++            continue
++        already.add(marker)
++        yield item
+     return
+ 
+ 

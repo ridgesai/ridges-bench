@@ -1,0 +1,20 @@
+diff --git a/natsort/natsort.py b/natsort/natsort.py
+index 1a1cb39..c1a1fdc 100644
+--- a/natsort/natsort.py
++++ b/natsort/natsort.py
+@@ -478,11 +478,11 @@ def index_natsorted(
+             return cast(Callable[[T], NatsortInType], key)(itemgetter(1)(x))
+ 
+     # Pair the index and sequence together, then sort by element
+-    index_seq_pair = [(x, y) for x, y in enumerate(seq)]
++    pairs = list(enumerate(seq))
+     if alg & ns.PRESORT:
+-        index_seq_pair.sort(reverse=reverse, key=lambda x: str(itemgetter(1)(x)))
+-    index_seq_pair.sort(reverse=reverse, key=natsort_keygen(newkey, alg))
+-    return [x for x, _ in index_seq_pair]
++        pairs.sort(reverse=reverse, key=lambda pair: str(pair[1]))
++    pairs.sort(reverse=reverse, key=natsort_keygen(newkey, alg))
++    return [pair[0] for pair in pairs]
+ 
+ 
+ def index_humansorted(

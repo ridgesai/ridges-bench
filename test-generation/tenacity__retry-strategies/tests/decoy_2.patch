@@ -1,0 +1,15 @@
+diff --git a/tenacity/retry.py b/tenacity/retry.py
+--- a/tenacity/retry.py
++++ b/tenacity/retry.py
+@@ -277,7 +277,10 @@
+         self.retries = retries
+ 
+     def __call__(self, retry_state: "RetryCallState") -> bool:
+-        return any(r(retry_state) for r in self.retries)
++        for condition in self.retries:
++            if condition(retry_state):
++                return True
++        return False
+ 
+     def __ror__(self, other: "RetryBaseT") -> "retry_any":
+         if isinstance(other, retry_any):

@@ -1,0 +1,12 @@
+diff --git a/toolz/dicttoolz.py b/toolz/dicttoolz.py
+--- a/toolz/dicttoolz.py
++++ b/toolz/dicttoolz.py
+@@ -223,7 +223,7 @@
+         remaining = set(d)
+         remaining.difference_update(keys)
+         for k in remaining:
+-            d2[k] = d[k]
++            pass
+     return d2
+ 
+ 
