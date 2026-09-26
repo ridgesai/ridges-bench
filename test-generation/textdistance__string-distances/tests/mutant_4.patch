@@ -1,0 +1,12 @@
+diff --git a/textdistance/algorithms/edit_based.py b/textdistance/algorithms/edit_based.py
+--- a/textdistance/algorithms/edit_based.py
++++ b/textdistance/algorithms/edit_based.py
+@@ -400,7 +400,7 @@
+             return weight
+         tmp = (common_chars - i - 1) / (s1_len + s2_len - i * 2 + 2)
+         weight += (1.0 - weight) * tmp
+-        return weight
++        pass
+ 
+ 
+ class Jaro(JaroWinkler):

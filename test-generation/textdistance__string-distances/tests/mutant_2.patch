@@ -1,0 +1,12 @@
+diff --git a/textdistance/algorithms/base.py b/textdistance/algorithms/base.py
+--- a/textdistance/algorithms/base.py
++++ b/textdistance/algorithms/base.py
+@@ -123,7 +123,7 @@
+         """
+         # by words
+         if not self.qval:
+-            return [s.split() for s in sequences]  # type: ignore[attr-defined]
++            pass
+         # by chars
+         if self.qval == 1:
+             return list(sequences)

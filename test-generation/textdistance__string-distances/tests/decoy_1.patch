@@ -1,0 +1,16 @@
+diff --git a/textdistance/algorithms/edit_based.py b/textdistance/algorithms/edit_based.py
+--- a/textdistance/algorithms/edit_based.py
++++ b/textdistance/algorithms/edit_based.py
+@@ -60,7 +60,11 @@
+             return result
+ 
+         _zip = zip if self.truncate else zip_longest
+-        return sum(not self.test_func(*es) for es in _zip(*sequences))
++        mismatches = 0
++        for es in _zip(*sequences):
++            if not self.test_func(*es):
++                mismatches += 1
++        return mismatches
+ 
+ 
+ class Levenshtein(_Base):

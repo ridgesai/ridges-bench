@@ -1,0 +1,12 @@
+diff --git a/textdistance/algorithms/edit_based.py b/textdistance/algorithms/edit_based.py
+--- a/textdistance/algorithms/edit_based.py
++++ b/textdistance/algorithms/edit_based.py
+@@ -412,7 +412,7 @@
+     ) -> None:
+         super().__init__(
+             long_tolerance=long_tolerance,
+-            winklerize=False,
++            winklerize=True,
+             qval=qval,
+             external=external,
+         )
