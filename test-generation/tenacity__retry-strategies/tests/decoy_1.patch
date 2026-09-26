@@ -1,0 +1,17 @@
+diff --git a/tenacity/wait.py b/tenacity/wait.py
+--- a/tenacity/wait.py
++++ b/tenacity/wait.py
+@@ -110,9 +110,10 @@
+         self.strategies = strategies
+ 
+     def __call__(self, retry_state: "RetryCallState") -> float:
+-        wait_func_no = min(max(retry_state.attempt_number, 1), len(self.strategies))
+-        wait_func = self.strategies[wait_func_no - 1]
+-        return wait_func(retry_state=retry_state)
++        index = max(retry_state.attempt_number, 1) - 1
++        if index >= len(self.strategies):
++            index = len(self.strategies) - 1
++        return self.strategies[index](retry_state=retry_state)
+ 
+ 
+ class wait_exception(wait_base):

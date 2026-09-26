@@ -1,0 +1,12 @@
+diff --git a/tenacity/__init__.py b/tenacity/__init__.py
+--- a/tenacity/__init__.py
++++ b/tenacity/__init__.py
+@@ -365,7 +365,7 @@
+         )
+         def wrapped_f(*args: t.Any, **kw: t.Any) -> t.Any:
+             if not self.enabled:
+-                return f(*args, **kw)
++                return f(*args, *kw)
+             # Always create a copy to prevent overwriting the local contexts when
+             # calling the same wrapped functions multiple times in the same stack
+             copy = self.copy()

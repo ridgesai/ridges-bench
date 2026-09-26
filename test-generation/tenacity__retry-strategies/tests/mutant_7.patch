@@ -1,0 +1,12 @@
+diff --git a/tenacity/__init__.py b/tenacity/__init__.py
+--- a/tenacity/__init__.py
++++ b/tenacity/__init__.py
+@@ -619,7 +619,7 @@
+         self.outcome = None
+         self.outcome_timestamp = None
+         self.attempt_number += 1
+-        self.next_action = None
++        pass
+ 
+     def set_result(self, val: t.Any) -> None:
+         ts = time.monotonic()

@@ -1,0 +1,12 @@
+diff --git a/tenacity/wait.py b/tenacity/wait.py
+--- a/tenacity/wait.py
++++ b/tenacity/wait.py
+@@ -67,7 +67,7 @@
+     """Wait strategy that waits a random amount of time between min/max."""
+ 
+     def __init__(
+-        self, min: _utils.time_unit_type = 0, max: _utils.time_unit_type = 1
++        self, min: _utils.time_unit_type = 1, max: _utils.time_unit_type = 1
+     ) -> None:
+         self.wait_random_min = _utils.to_seconds(min)
+         self.wait_random_max = _utils.to_seconds(max)

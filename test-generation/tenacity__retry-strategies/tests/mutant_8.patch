@@ -1,0 +1,12 @@
+diff --git a/tenacity/__init__.py b/tenacity/__init__.py
+--- a/tenacity/__init__.py
++++ b/tenacity/__init__.py
+@@ -497,7 +497,7 @@
+                 yield AttemptManager(retry_state=retry_state)
+             elif isinstance(do, DoSleep):
+                 retry_state.prepare_for_next_attempt()
+-                self.sleep(do)
++                pass
+             else:
+                 break
+ 
