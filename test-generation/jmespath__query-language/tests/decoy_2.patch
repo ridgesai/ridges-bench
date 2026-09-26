@@ -1,0 +1,20 @@
+diff --git a/jmespath/visitor.py b/jmespath/visitor.py
+index 15fb177..3f12e5a 100644
+--- a/jmespath/visitor.py
++++ b/jmespath/visitor.py
+@@ -273,12 +273,9 @@ class TreeInterpreter(Visitor):
+         base = self.visit(node['children'][0], value)
+         if not isinstance(base, list):
+             return None
+-        collected = []
+-        for element in base:
+-            current = self.visit(node['children'][1], element)
+-            if current is not None:
+-                collected.append(current)
+-        return collected
++        rhs = node['children'][1]
++        projected = (self.visit(rhs, element) for element in base)
++        return [current for current in projected if current is not None]
+ 
+     def visit_value_projection(self, node, value):
+         base = self.visit(node['children'][0], value)

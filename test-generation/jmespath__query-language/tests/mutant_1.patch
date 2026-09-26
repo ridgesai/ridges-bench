@@ -1,0 +1,12 @@
+diff --git a/jmespath/functions.py b/jmespath/functions.py
+--- a/jmespath/functions.py
++++ b/jmespath/functions.py
+@@ -14,7 +14,7 @@
+     'NoneType': 'null',
+     'unicode': 'string',
+     'str': 'string',
+-    'float': 'number',
++    '': 'number',
+     'int': 'number',
+     'long': 'number',
+     'OrderedDict': 'object',

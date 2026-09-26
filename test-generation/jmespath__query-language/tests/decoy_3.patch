@@ -1,0 +1,37 @@
+diff --git a/jmespath/parser.py b/jmespath/parser.py
+index cc8e804..9570f7c 100644
+--- a/jmespath/parser.py
++++ b/jmespath/parser.py
+@@ -227,25 +227,25 @@ class Parser(object):
+         # [start:end:step]
+         # Where start, end, and step are optional.
+         # The last colon is optional as well.
+-        parts = [None, None, None]
+-        index = 0
++        slice_parts = [None, None, None]
++        position = 0
+         current_token = self._current_token()
+-        while not current_token == 'rbracket' and index < 3:
++        while not current_token == 'rbracket' and position < 3:
+             if current_token == 'colon':
+-                index += 1
+-                if index == 3:
++                position += 1
++                if position == 3:
+                     self._raise_parse_error_for_token(
+                         self._lookahead_token(0), 'syntax error')
+                 self._advance()
+             elif current_token == 'number':
+-                parts[index] = self._lookahead_token(0)['value']
++                slice_parts[position] = self._lookahead_token(0)['value']
+                 self._advance()
+             else:
+                 self._raise_parse_error_for_token(
+                     self._lookahead_token(0), 'syntax error')
+             current_token = self._current_token()
+         self._match('rbracket')
+-        return ast.slice(*parts)
++        return ast.slice(*slice_parts)
+ 
+     def _token_nud_current(self, token):
+         return ast.current_node()
