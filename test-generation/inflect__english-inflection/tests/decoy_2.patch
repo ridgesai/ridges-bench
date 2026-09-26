@@ -1,0 +1,31 @@
+diff --git a/inflect/__init__.py b/inflect/__init__.py
+index 3eef486..0dba76f 100644
+--- a/inflect/__init__.py
++++ b/inflect/__init__.py
+@@ -3802,11 +3802,9 @@ class engine:
+ 
+     @classmethod
+     def _chunk_num(cls, num, decimal, group):
++        chunks = [num]
+         if decimal:
+-            max_split = -1 if group != 0 else 1
+-            chunks = num.split(".", max_split)
+-        else:
+-            chunks = [num]
++            chunks = num.split(".", 1 if group == 0 else -1)
+         return cls._remove_last_blank(chunks)
+ 
+     @staticmethod
+@@ -3816,9 +3814,9 @@ class engine:
+ 
+         Return the resultant chunks and whether the last item was removed.
+         """
+-        removed = chunks[-1] == ""
+-        result = chunks[:-1] if removed else chunks
+-        return result, removed
++        if chunks[-1] == "":
++            return chunks[:-1], True
++        return chunks, False
+ 
+     @staticmethod
+     def _get_sign(num):
