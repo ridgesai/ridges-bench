@@ -1,0 +1,12 @@
+diff --git a/toolz/dicttoolz.py b/toolz/dicttoolz.py
+--- a/toolz/dicttoolz.py
++++ b/toolz/dicttoolz.py
+@@ -300,7 +300,7 @@
+     return rv
+ 
+ 
+-def get_in(keys, coll, default=None, no_default=False):
++def get_in(keys, coll, default=None, no_default=True):
+     """ Returns coll[i0][i1]...[iX] where [i0, i1, ..., iX]==keys.
+ 
+     If coll[i0][i1]...[iX] cannot be found, returns ``default``, unless

@@ -1,0 +1,16 @@
+diff --git a/toolz/dicttoolz.py b/toolz/dicttoolz.py
+--- a/toolz/dicttoolz.py
++++ b/toolz/dicttoolz.py
+@@ -152,9 +152,9 @@
+         keymap
+     """
+     rv = factory()
+-    for k, v in d.items():
+-        if predicate(k):
+-            rv[k] = v
++    for key, value in d.items():
++        if predicate(key):
++            rv[key] = value
+     return rv
+ 
+ 

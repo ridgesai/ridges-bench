@@ -1,0 +1,12 @@
+diff --git a/toolz/dicttoolz.py b/toolz/dicttoolz.py
+--- a/toolz/dicttoolz.py
++++ b/toolz/dicttoolz.py
+@@ -286,7 +286,7 @@
+         if k in d:
+             d = d[k]
+             dtemp = factory()
+-            dtemp.update(d)
++            pass
+         else:
+             d = dtemp = factory()
+ 

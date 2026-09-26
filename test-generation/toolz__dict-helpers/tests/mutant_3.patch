@@ -1,0 +1,9 @@
+diff --git a/toolz/dicttoolz.py b/toolz/dicttoolz.py
+--- a/toolz/dicttoolz.py
++++ b/toolz/dicttoolz.py
+@@ -336,4 +336,4 @@
+     except (KeyError, IndexError, TypeError):
+         if no_default:
+             raise
+-        return default
++        pass
